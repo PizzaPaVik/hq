@@ -3,6 +3,6 @@
 // Du kan också lämna fälten tomma och klistra in dem i appens inställningar.
 window.HQ_CONFIG = {
     supabaseUrl: 'https://rsdsrxaxyutzfiwrfbta.supabase.co',
-   supabaseAnonKey: 'sb_publishable_...hela nyckeln...',
+   supabaseAnonKey: 'sb_publishable_GmFkwBfLQnXNDbhdFOySRg_E7DDv482',
   name: 'Fabinator'
 };
