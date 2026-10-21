@@ -614,3 +614,5 @@ mark{background:color-mix(in srgb,var(--yellow) 38%,transparent);color:inherit;b
 .jv-days b{font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.03em;line-height:1.1}
 .jv-svar{white-space:pre-wrap;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
 .jv-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}
+.jv-quick{margin-top:12px;padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--blue,#3d8bff) 10%,transparent)}
+.jv-quick b{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);margin-bottom:4px}
