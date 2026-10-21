@@ -4,7 +4,7 @@
    HQ — personlig dashboard (PWA). Lokal först, synk via Supabase.
    ========================================================================= */
 const CFG = window.HQ_CONFIG || {};
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const K = { data: 'hq.data.v1', ses: 'hq.session.v1', cfg: 'hq.cfg.v1', ui: 'hq.ui.v1' };
 const ls = {
   get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } },
@@ -731,6 +731,7 @@ function jarvisView() {
   if (!s) return h + `<div style="margin-top:12px">${empty(I.sparkle, 'purple', 'Jarvis är inte kopplad än', 'Koppla datorn under Inställningar → Jarvis på datorn.', `<button class="btn tinted" data-act="settings">Inställningar</button>`)}</div>`;
   const stale = !jvOn(s), waiting = od.filter(o => o.status === 'ny').length;
   h += `<p class="jv-upd ${stale ? 'stale' : ''}"><i></i>${stale ? 'Datorn är avstängd – senast synkad' : 'Datorn är igång · synkad'} ${esc(jvAgo(s.pushedAt))}${stale && waiting ? ` · ${waiting} ${waiting === 1 ? 'uppdrag väntar' : 'uppdrag väntar'} på den` : ''}${s.salesUpdated ? ` · siffror från ${esc(s.salesUpdated.replace('T', ' ').slice(0, 16))}` : ''}</p>`;
+  if (s.hold) h += `<div class="jv-alert">Claude-gränsen är nästan nådd: ${esc(s.hold)}. Nya uppdrag väntar tills dess.</div>`;
   if (s.lead) h += `<p class="jv-lead">${esc(s.lead)}</p>`;
   (s.alerts || []).forEach(a => { h += `<div class="jv-alert">${esc(a.text)}</div>`; });
   const k = s.kpi || {};
@@ -744,13 +745,14 @@ function jarvisView() {
   }
   const pend = jvPending(s);
   h += sec('Väntar på ditt ja', '', pend.length ? `<div class="stack">${pend.map(p => `<div class="glass jv-p">
-      <div class="jv-p-t"><b>${esc(p.title)}</b>${p.detail || p.agentName ? `<span>${esc([p.detail, p.agentName].filter(Boolean).join(' · '))}</span>` : ''}</div>
-      <div class="btn-row"><button class="btn" data-act="jv-ok" data-id="${esc(p.id)}">${esc(p.yes || 'Godkänn')}</button><button class="btn secondary" data-act="jv-skip" data-id="${esc(p.id)}">Inte nu</button></div></div>`).join('')}</div>`
+      <div class="jv-p-t"><b>${p.prio === 'hög' ? '<em class="jv-pr h">Hög</em>' : p.prio === 'låg' ? '<em class="jv-pr">Låg</em>' : ''}${esc(p.title)}</b>${p.av === 'samordnaren' ? '<span>Förslag från teamet</span>' : ''}${p.detail || p.agentName ? `<span>${esc([p.detail, p.agentName].filter(Boolean).join(' · '))}</span>` : ''}</div>
+      <div class="btn-row"><button class="btn" data-act="jv-ok" data-id="${esc(p.id)}">${esc(p.yes || 'Godkänn')}</button><button class="btn secondary" data-act="jv-skip" data-id="${esc(p.id)}">Inte nu</button><button class="btn secondary" data-act="jv-no" data-id="${esc(p.id)}">Avböj</button></div></div>`).join('')}</div>`
     : `<div class="glass list plain"><div class="row"><div class="row-main"><div class="row-title">Inget väntar på dig</div></div></div></div>`, pend.length || null);
   if (od.length) h += sec('Dina uppdrag', '', `<div class="glass list plain">${od.slice(0, 8).map(jvOrderRow).join('')}</div>`);
   if (Array.isArray(s.calendar) && s.calendar.length) h += sec('Kommande kampanjer', '', `<div class="glass list plain">${s.calendar.map(e => `<div class="row"><span class="jv-days"><b>${e.days <= 0 ? 'Nu' : e.days}</b>${e.days > 0 ? 'dagar' : ''}</span><div class="row-main"><div class="row-title">${esc(e.namn)}</div><div class="row-sub"><span>${esc(e.datum)}</span>${e.plan ? `<span>${esc(e.plan)}</span>` : ''}</div></div></div>`).join('')}</div>`);
-  const us = s.usage;
-  if (us) h += sec('Claude-användning', '', `<div class="glass list plain"><div class="row"><div class="row-main"><div class="row-title">${jvTok(us.vecka)} tokens senaste 7 dagarna</div><div class="row-sub"><span>${jvNum(us.svarVecka)} svar</span><span>i dag ${jvTok(us.idag)}</span>${us.hq7d ? `<span>${us.hq7d.runs} körningar från HQ${us.hq7d.usd ? ' · ca $' + us.hq7d.usd.toFixed(2).replace('.', ',') + ' i API-pris' : ''}</span>` : ''}</div></div></div></div>`);
+  const us = s.usage, PL = s.plan;
+  const plRows = PL ? [['fiveHour', '5-timmarsgränsen'], ['weekly', 'Veckogränsen']].filter(([k]) => PL[k] && PL[k].pct != null).map(([k, l]) => { const w = PL[k], p = w.pct; return `<div class="row"><div class="row-main"><div class="row-title">${l}: ${p} %</div><div class="bar thin ${p >= 70 ? 'warn' : ''}" style="margin-top:6px"><i style="width:${Math.min(100, p)}%;${p >= 70 ? 'background:var(--orange,#ff9f0a)' : ''}"></i></div><div class="row-sub"><span>${w.resetsAt ? 'nollställs ' + esc(new Date(w.resetsAt).toLocaleString('sv-SE', { weekday: 'short', hour: '2-digit', minute: '2-digit' })) : ''}</span>${PL.extraUsage === false ? '<span>kan inte kosta extra</span>' : ''}</div></div></div>`; }).join('') : '';
+  if (us || plRows) h += sec('Claude Pro', '', `<div class="glass list plain">${plRows}${us ? `<div class="row"><div class="row-main"><div class="row-title">${jvTok(us.vecka)} tokens senaste 7 dagarna</div><div class="row-sub"><span>${jvNum(us.svarVecka)} svar</span><span>i dag ${jvTok(us.idag)}</span>${us.hq7d ? `<span>${us.hq7d.runs} körningar från HQ${us.hq7d.usd ? ' · ca $' + us.hq7d.usd.toFixed(2).replace('.', ',') + ' i API-pris' : ''}</span>` : ''}</div></div></div>` : ''}</div>`);
   if (Array.isArray(s.log) && s.log.length) h += sec('Senaste från agenterna', '', `<div class="glass list plain">${s.log.slice(0, 6).map(r => `<div class="row"><div class="row-main"><div class="row-title">${esc(r.task)}</div><div class="row-sub"><span>${esc(r.agentName || r.agent)}</span><span>${esc(r.status)}</span>${r.result ? `<span>${esc(r.result)}</span>` : ''}</div></div></div>`).join('')}</div>`);
   return h;
 }
@@ -1297,6 +1299,11 @@ const ACT = {
     const s = jvStatus(); const p = jvPending(s).find(x => x.id === el.dataset.id); if (!p) return;
     jvSend(p.prompt || `Jarvis: godkänt: ${p.title} (${p.id})`, `${p.yes || 'Godkänt'}: ${p.title}`);
     UI.jvDone = { ...(UI.jvDone || {}), [p.id]: Date.now() }; saveUI(); App.render(); toast('Skickat till Jarvis');
+  },
+  'jv-no': el => {
+    const s = jvStatus(); const p = jvPending(s).find(x => x.id === el.dataset.id); if (!p) return;
+    DB.put({ id: uid(), kind: 'jarvis-order', action: 'avbojd', taskId: p.id, text: 'Avböj: ' + p.title, title: 'Avböjd: ' + p.title, status: 'ny', from: 'HQ' });
+    UI.jvDone = { ...(UI.jvDone || {}), [p.id]: Date.now() }; saveUI(); App.render(); toast('Avböjd');
   },
   'jv-skip': el => { UI.jvDone = { ...(UI.jvDone || {}), [el.dataset.id]: Date.now() }; saveUI(); App.render(); },
   'jv-open': el => jvOrderSheet(el.dataset.id),
