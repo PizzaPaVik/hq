@@ -4,7 +4,7 @@
    HQ — personlig dashboard (PWA). Lokal först, synk via Supabase.
    ========================================================================= */
 const CFG = window.HQ_CONFIG || {};
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const K = { data: 'hq.data.v1', ses: 'hq.session.v1', cfg: 'hq.cfg.v1', ui: 'hq.ui.v1' };
 const ls = {
   get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } },
@@ -311,7 +311,7 @@ const UI = Object.assign({
   name: CFG.name || 'Fabinator', showDone: false,
 }, ls.get(K.ui, {}));
 UI.sub = Object.assign({ traning: 'pass', butik: 'todo', noter: 'notes' }, UI.sub || {});
-const saveUI = () => ls.set(K.ui, { tab: UI.tab, sub: UI.sub, orderFilter: UI.orderFilter, exercise: UI.exercise, openCl: UI.openCl, hideInstall: UI.hideInstall, name: UI.name, showDone: UI.showDone });
+const saveUI = () => ls.set(K.ui, { tab: UI.tab, sub: UI.sub, orderFilter: UI.orderFilter, exercise: UI.exercise, openCl: UI.openCl, hideInstall: UI.hideInstall, name: UI.name, showDone: UI.showDone, jvDone: UI.jvDone });
 const scrollPos = {};
 
 /* =========================================================================
@@ -488,7 +488,7 @@ function vIdag() {
     todays.length ? taskList(todays) : empty(I.task, 'green', 'Inget planerat idag', 'Lägg till det viktigaste du vill få gjort.', `<button class="btn tinted" data-act="task-new" data-date="${t}">${I.plus}Ny uppgift</button>`));
   if (overdue.length) left += sec('Försenat', '', taskList(overdue, { showDate: true }), overdue.length);
 
-  let right = sec('Butiken', `<button class="link" data-act="go-orders">Alla ordrar</button>`,
+  let right = jarvisCardIdag() + sec('Butiken', `<button class="link" data-act="go-orders">Alla ordrar</button>`,
     act.length ? `<div class="glass list plain">${act.slice(0, 4).map(orderRow).join('')}</div>`
       : `<div class="glass list plain"><div class="row" data-act="go-orders"><span class="stat-ic t-green" style="margin:0;width:32px;height:32px">${I.check}</span><div class="row-main"><div class="row-title">Inga ordrar väntar</div><div class="row-sub">Allt är beställt hos leverantören</div></div><span class="chev">${I.chevR}</span></div></div>`);
   right += sec('Träning', `<button class="link" data-act="tab" data-tab="traning">Alla pass</button>`,
@@ -587,8 +587,10 @@ function vButik() {
   const sub = UI.sub.butik;
   const openOrders = DB.list('order').filter(o => o.status !== 'levererad').length;
   let h = header('Butiken', openOrders ? `${openOrders} aktiva ordrar` : 'Vencare');
-  h += seg('butik', [['todo', 'Att göra'], ['ordrar', 'Ordrar'], ['listor', 'Checklistor'], ['produkter', 'Produkter']], sub);
-  if (sub === 'todo') {
+  h += seg('butik', [['jarvis', 'Jarvis'], ['todo', 'Att göra'], ['ordrar', 'Ordrar'], ['listor', 'Listor'], ['produkter', 'Varor']], sub);
+  if (sub === 'jarvis') {
+    h += jarvisView();
+  } else if (sub === 'todo') {
     const all = DB.list('task').filter(x => x.category === 'butik'), t = today();
     const open = all.filter(x => !x.done), done = all.filter(x => x.done).sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
     const g = [['Försenat', open.filter(x => x.date && x.date < t), 'late'], ['Idag', open.filter(x => x.date === t)], ['Kommande', open.filter(x => x.date && x.date > t)], ['Utan datum', open.filter(x => !x.date)]].filter(x => x[1].length);
@@ -658,6 +660,95 @@ function vNoter() {
   }
   return h;
 }
+
+/* =========================================================================
+   Jarvis — Vencares assistent på datorn. Datorn skickar status hit via Supabase
+   (jarvis.sql), och uppdrag du skriver här körs på datorn med Claude.
+   ========================================================================= */
+const JV_ST = { ny: ['Skickat', 'blue'], 'körs': ['Jarvis jobbar', 'purple'], klar: ['Klart', 'green'], fel: ['Gick inte', 'red'] };
+const jvStatus = () => Object.values(DB.items).find(i => i.kind === 'jarvis' && !i.deleted) || null;
+const jvOrders = () => DB.list('jarvis-order').sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+const jvNum = n => Math.round(+n || 0).toLocaleString('sv-SE');
+function jvAgo(ms) {
+  if (!ms) return 'aldrig';
+  const m = Math.round((Date.now() - ms) / 60000);
+  if (m < 1) return 'nyss'; if (m < 60) return `för ${m} min sedan`;
+  const h = Math.round(m / 60); if (h < 24) return `för ${h} tim sedan`;
+  return longDate(ymd(new Date(ms)));
+}
+function jvPending(s) {
+  const done = UI.jvDone || {};
+  return (s && Array.isArray(s.pending) ? s.pending : []).filter(p => !done[p.id]);
+}
+function jvSend(text, title) {
+  text = String(text || '').trim(); if (!text) return null;
+  if (!/^jarvis\b/i.test(text)) text = 'Jarvis: ' + text;
+  return DB.put({ id: uid(), kind: 'jarvis-order', text, title: title || text.replace(/^jarvis:\s*/i, ''), status: 'ny', from: 'HQ' });
+}
+function jvOrderRow(o) {
+  const [l, tone] = JV_ST[o.status] || JV_ST.ny;
+  return `<div class="row" data-act="jv-open" data-id="${o.id}" role="button" tabindex="0">
+    <span class="stat-ic t-${tone}" style="margin:0;width:32px;height:32px">${o.status === 'klar' ? I.check : I.sparkle}</span>
+    <div class="row-main"><div class="row-title">${esc(o.title || o.text)}</div><div class="row-sub"><span>${l}</span><span>${esc(jvAgo(o.klar || o.createdAt))}</span></div></div>
+    <span class="chev">${I.chevR}</span></div>`;
+}
+function jarvisCardIdag() {
+  const s = jvStatus(); if (!s) return '';
+  const p = jvPending(s).length, run = jvOrders().filter(o => o.status === 'körs' || o.status === 'ny').length;
+  return sec('Jarvis', `<button class="link" data-act="go-jarvis">Öppna</button>`,
+    `<div class="glass list plain"><div class="row" data-act="go-jarvis" role="button" tabindex="0"><span class="stat-ic t-purple" style="margin:0;width:32px;height:32px">${I.sparkle}</span>
+      <div class="row-main"><div class="row-title">${p ? `${p} ${p === 1 ? 'sak väntar' : 'saker väntar'} på ditt ja` : 'Inget väntar på dig'}</div>
+      <div class="row-sub">${run ? `<span>${run} uppdrag pågår</span>` : ''}<span>${esc(s.lead || '')}</span></div></div><span class="chev">${I.chevR}</span></div></div>`);
+}
+function jarvisView() {
+  const s = jvStatus(), od = jvOrders();
+  let h = `<div class="glass jv-ask">
+    <textarea id="jv-in" class="input" rows="2" placeholder="Ge Jarvis ett uppdrag, t.ex. Hur gick försäljningen igår?" enterkeyhint="send"></textarea>
+    <button class="btn" data-act="jv-send">${I.sparkle}Skicka till Jarvis</button>
+    <p class="hint">Datorn kör uppdraget med Claude. Det som publicerar, ändrar i Shopify, skickar mejl eller ändrar annonser väntar alltid på ditt ja.</p></div>`;
+  if (!s) return h + `<div style="margin-top:12px">${empty(I.sparkle, 'purple', 'Jarvis är inte kopplad än', 'Koppla datorn under Inställningar → Jarvis på datorn.', `<button class="btn tinted" data-act="settings">Inställningar</button>`)}</div>`;
+  const stale = Date.now() - (s.pushedAt || 0) > 20 * 60000;
+  h += `<p class="jv-upd ${stale ? 'stale' : ''}"><i></i>${stale ? 'Datorn är inte igång – senast' : 'Datorn är igång · synkad'} ${esc(jvAgo(s.pushedAt))}${s.salesUpdated ? ` · siffror från ${esc(s.salesUpdated.replace('T', ' ').slice(0, 16))}` : ''}</p>`;
+  if (s.lead) h += `<p class="jv-lead">${esc(s.lead)}</p>`;
+  (s.alerts || []).forEach(a => { h += `<div class="jv-alert">${esc(a.text)}</div>`; });
+  const k = s.kpi || {};
+  h += `<div class="stats">
+    <div class="stat glass"><span class="v">${jvNum(k.visits)}</span><span class="l">Besök, 7 dagar</span></div>
+    <div class="stat glass"><span class="v">${jvNum(k.carts)}</span><span class="l">Till varukorgen</span></div>
+    <div class="stat glass"><span class="v">${jvNum(k.orders)}</span><span class="l">Ordrar · ${jvNum(k.sales)} kr</span></div></div>`;
+  if (Array.isArray(s.funnel)) {
+    const F = s.funnel, L = ['Besök', 'Varukorg', 'Kassa', 'Köp'];
+    h += sec('Köpresan', '', `<div class="glass jv-fn">${F.map((n, i) => `<div><b>${jvNum(n)}</b><span>${L[i]}</span>${i ? `<em>${F[i - 1] ? Math.round(n / F[i - 1] * 100) + ' %' : '–'}</em>` : '<em>7 dagar</em>'}</div>`).join('')}</div>`);
+  }
+  const pend = jvPending(s);
+  h += sec('Väntar på ditt ja', '', pend.length ? `<div class="stack">${pend.map(p => `<div class="glass jv-p">
+      <div class="jv-p-t"><b>${esc(p.title)}</b>${p.detail || p.agentName ? `<span>${esc([p.detail, p.agentName].filter(Boolean).join(' · '))}</span>` : ''}</div>
+      <div class="btn-row"><button class="btn" data-act="jv-ok" data-id="${esc(p.id)}">${esc(p.yes || 'Godkänn')}</button><button class="btn secondary" data-act="jv-skip" data-id="${esc(p.id)}">Inte nu</button></div></div>`).join('')}</div>`
+    : `<div class="glass list plain"><div class="row"><div class="row-main"><div class="row-title">Inget väntar på dig</div></div></div></div>`, pend.length || null);
+  if (od.length) h += sec('Dina uppdrag', '', `<div class="glass list plain">${od.slice(0, 8).map(jvOrderRow).join('')}</div>`);
+  if (Array.isArray(s.calendar) && s.calendar.length) h += sec('Kommande kampanjer', '', `<div class="glass list plain">${s.calendar.map(e => `<div class="row"><span class="jv-days"><b>${e.days <= 0 ? 'Nu' : e.days}</b>${e.days > 0 ? 'dagar' : ''}</span><div class="row-main"><div class="row-title">${esc(e.namn)}</div><div class="row-sub"><span>${esc(e.datum)}</span>${e.plan ? `<span>${esc(e.plan)}</span>` : ''}</div></div></div>`).join('')}</div>`);
+  if (Array.isArray(s.log) && s.log.length) h += sec('Senaste från agenterna', '', `<div class="glass list plain">${s.log.slice(0, 6).map(r => `<div class="row"><div class="row-main"><div class="row-title">${esc(r.task)}</div><div class="row-sub"><span>${esc(r.agentName || r.agent)}</span><span>${esc(r.status)}</span>${r.result ? `<span>${esc(r.result)}</span>` : ''}</div></div></div>`).join('')}</div>`);
+  return h;
+}
+function jvOrderSheet(id) {
+  const o = DB.get(id); if (!o) return;
+  const [l] = JV_ST[o.status] || JV_ST.ny;
+  openSheet({ title: 'Uppdrag', left: 'Stäng', body: `<div class="panel"><p class="hint" style="margin:0 0 6px">${l} · skickat ${esc(jvAgo(o.createdAt))}${o.klar ? ' · klart ' + esc(jvAgo(o.klar)) : ''}</p><p style="margin:0 0 12px;font-weight:600">${esc(o.text)}</p>
+    ${o.svar ? `<div class="jv-svar">${esc(o.svar)}</div>` : `<p class="hint">${o.status === 'körs' ? 'Jarvis jobbar på det. Svaret dyker upp här.' : 'Väntar på att datorn hämtar uppdraget.'}</p>`}</div>
+    <div class="btn-row" style="margin-top:12px"><button class="btn secondary" data-act="jv-again" data-id="${o.id}">Skicka igen</button><button class="btn secondary" data-act="jv-del" data-id="${o.id}">Ta bort</button></div>` });
+}
+function jvSettings() {
+  if (!Sync.ses()) return `<p class="hint">Logga in ovan först. Sedan kan du koppla Jarvis på datorn.</p>`;
+  const code = UI._jvCode;
+  return `${code ? `<p class="hint" style="margin:0 0 8px">Kopplingskoden visas bara nu. Kör det här i en terminal på datorn (i vencare-mappen):</p>
+      <textarea class="input jv-code" rows="4" readonly>node .team/hq-sync.mjs koppla ${esc(code)}</textarea>
+      <div class="btn-row" style="margin-top:8px"><button class="btn" data-act="jv-copy">Kopiera</button><button class="btn secondary" data-act="jv-hide">Klar</button></div>`
+    : `<button class="btn" data-act="jv-link">${jvStatus() ? 'Ny kopplingskod' : 'Koppla Jarvis på datorn'}</button>
+      ${jvStatus() ? `<button class="btn secondary" style="margin-top:8px" data-act="jv-unlink">Koppla bort datorn</button>` : ''}
+      <p class="hint" style="margin-top:10px">Datorn får en egen nyckel som bara kommer åt Jarvis – inte resten av HQ. Kräver att <b>jarvis.sql</b> har körts i Supabase en gång.</p>`}
+    <p class="form-msg" id="jv-msg"></p>`;
+}
+const jvSetMsg = (t, kind = 'err') => { const m = $('#jv-msg'); if (m) { m.className = `form-msg ${kind}`; m.textContent = t; } };
 
 const VIEWS = { idag: vIdag, kalender: vKalender, traning: vTraning, butik: vButik, noter: vNoter };
 
@@ -1142,6 +1233,8 @@ function settingsBody() {
     <div class="group-label">Synk mellan enheter</div>
     <div class="panel">${sync}<p class="form-msg" id="auth-msg"></p>
       ${Sync.configured() && !UI._editCfg ? `<button class="link" style="font-size:14px;margin-top:6px" data-act="cfg-edit">Ändra Supabase-anslutning</button>` : ''}</div>
+    <div class="group-label">Jarvis på datorn</div>
+    <div class="panel">${jvSettings()}</div>
     <div class="group-label">Säkerhetskopia</div>
     <div class="panel"><div class="btn-row"><button class="btn secondary" data-act="export">Exportera</button><button class="btn secondary" data-act="import">Importera</button></div>
       <p class="hint" style="margin-top:10px">Sparar allt som en fil. Bra att ha, även om allt synkas.</p></div>
@@ -1167,6 +1260,36 @@ const ACT = {
   'sub': el => { UI.sub[el.dataset.key] = el.dataset.v; saveUI(); App.render(); },
   'go-orders': () => { UI.sub.butik = 'ordrar'; UI.orderFilter = 'aktiva'; goTab('butik'); App.render(); },
   'go-goals': () => { UI.sub.noter = 'mal'; goTab('noter'); App.render(); },
+  'go-jarvis': () => { UI.sub.butik = 'jarvis'; goTab('butik'); App.render(); },
+  'jv-send': () => {
+    const f = $('#jv-in'); const o = jvSend(f && f.value);
+    if (!o) { toast('Skriv vad Jarvis ska göra först'); return; }
+    f.value = ''; App.render(); toast('Skickat till Jarvis');
+  },
+  'jv-ok': el => {
+    const s = jvStatus(); const p = jvPending(s).find(x => x.id === el.dataset.id); if (!p) return;
+    jvSend(p.prompt || `Jarvis: godkänt: ${p.title} (${p.id})`, `${p.yes || 'Godkänt'}: ${p.title}`);
+    UI.jvDone = { ...(UI.jvDone || {}), [p.id]: Date.now() }; saveUI(); App.render(); toast('Skickat till Jarvis');
+  },
+  'jv-skip': el => { UI.jvDone = { ...(UI.jvDone || {}), [el.dataset.id]: Date.now() }; saveUI(); App.render(); },
+  'jv-open': el => jvOrderSheet(el.dataset.id),
+  'jv-again': el => { const o = DB.get(el.dataset.id); if (o) { jvSend(o.text, o.title); closeSheet(); App.render(); toast('Skickat igen'); } },
+  'jv-del': el => { DB.remove(el.dataset.id); closeSheet(); App.render(); },
+  'jv-link': async el => {
+    el.disabled = true;
+    try {
+      const token = await Sync.rest('rpc/jarvis_link', { method: 'POST', body: '{}' });
+      const { url, key } = Sync.cfg();
+      UI._jvCode = btoa(JSON.stringify({ url, key, token }));
+      rerenderSettings();
+    } catch (e) {
+      el.disabled = false;
+      jvSetMsg(/jarvis_link|does not exist|Could not find/i.test(e.message || '') ? 'Kör jarvis.sql i Supabase först (SQL Editor).' : (e.message || 'Något gick fel'));
+    }
+  },
+  'jv-copy': async () => { const t = $('.jv-code'); try { await navigator.clipboard.writeText(t.value); toast('Kopierat'); } catch { t.select(); toast('Markerat – kopiera med Ctrl+C'); } },
+  'jv-hide': () => { UI._jvCode = null; rerenderSettings(); },
+  'jv-unlink': async el => { el.disabled = true; try { await Sync.rest('rpc/jarvis_unlink', { method: 'POST', body: '{}' }); toast('Datorn är bortkopplad'); } catch (e) { jvSetMsg(e.message); } el.disabled = false; },
   'search': () => searchSheet(),
   'settings': () => settingsSheet(),
   'quick': () => quickSheet(),

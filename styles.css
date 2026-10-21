@@ -592,3 +592,25 @@ mark{background:color-mix(in srgb,var(--yellow) 38%,transparent);color:inherit;b
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+/* ---------- Jarvis ---------- */
+.jv-ask{padding:14px;border-radius:22px;display:grid;gap:10px}
+.jv-ask textarea{resize:vertical;min-height:64px}
+.jv-ask .hint{margin:0}
+.jv-upd{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2);margin:16px 6px 4px}
+.jv-upd i{width:8px;height:8px;border-radius:50%;background:var(--green);flex:none}
+.jv-upd.stale i{background:var(--text-3)}
+.jv-lead{font-size:17px;font-weight:600;line-height:1.35;margin:4px 6px 12px;letter-spacing:-.01em}
+.jv-alert{padding:10px 14px;border-radius:14px;margin:0 0 10px;font-size:14px;font-weight:500;color:var(--red);background:color-mix(in srgb,var(--red) 12%,transparent)}
+.jv-fn{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:14px 6px;border-radius:22px}
+.jv-fn div{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center}
+.jv-fn b{font-size:22px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.jv-fn span{font-size:12.5px;color:var(--text-2);font-weight:500}
+.jv-fn em{font-style:normal;font-size:11.5px;color:var(--text-3)}
+.jv-p{padding:14px;border-radius:20px;display:grid;gap:10px}
+.jv-p-t b{display:block;font-size:16px;font-weight:600;line-height:1.3}
+.jv-p-t span{display:block;font-size:13.5px;color:var(--text-2);margin-top:2px}
+.jv-days{display:flex;flex-direction:column;align-items:center;min-width:44px;font-size:11px;color:var(--text-3)}
+.jv-days b{font-size:20px;font-weight:700;color:var(--text);letter-spacing:-.03em;line-height:1.1}
+.jv-svar{white-space:pre-wrap;font-size:15px;line-height:1.5;overflow-wrap:anywhere}
+.jv-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;word-break:break-all}

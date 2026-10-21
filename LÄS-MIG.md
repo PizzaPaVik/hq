@@ -1,0 +1,69 @@
+# HQ – så kommer du igång (ca 15 minuter, 0 kr)
+
+Appen fungerar direkt utan konto, men då sparas allt bara på den enhet du använder.
+Följ stegen nedan en gång så synkas iPhone och dator automatiskt.
+
+## 1. Skapa databasen (Supabase, gratis)
+1. Gå till **supabase.com** → *Start your project* → logga in med GitHub eller e-post.
+2. *New project*. Välj ett namn (t.ex. `hq`), ett databaslösenord och region **North EU (Stockholm)**. Välj gratisplanen.
+3. När projektet är klart: öppna **SQL Editor → New query**, klistra in hela innehållet i `supabase.sql` och tryck **Run**.
+4. Öppna **Project Settings → API** och kopiera **Project URL** och **anon public key**.
+5. Klistra in dem i `config.js` (eller i appens Inställningar senare).
+
+## 2. Lägg upp appen (GitHub Pages, gratis)
+1. Gå till **github.com** → skapa konto om du inte har ett → **New repository** → namn `hq` → *Public* → *Create*.
+2. Klicka **uploading an existing file** och dra in **alla filer och mappen `icons`** från den här mappen → *Commit changes*.
+3. Gå till **Settings → Pages** → *Source: Deploy from a branch* → *Branch: main / (root)* → *Save*.
+4. Efter någon minut finns appen på `https://DITT-ANVÄNDARNAMN.github.io/hq/`.
+5. Tillbaka i Supabase: **Authentication → URL Configuration → Site URL** = din adress från punkt 4. (Då hamnar bekräftelselänken i mejlet rätt.)
+
+## 3. Installera på iPhone
+1. Öppna adressen i **Safari**.
+2. Tryck på **Dela**-ikonen → **Lägg till på hemskärmen** → *Lägg till*.
+3. Öppna HQ från hemskärmen → Inställningar (reglage-ikonen uppe till höger) → **Skapa konto**.
+4. Bekräfta via mejlet och logga sedan in i appen.
+
+## 4. Datorn
+Öppna samma adress i Chrome eller Safari och logga in med samma konto.
+I Chrome kan du installera den som app via ikonen i adressfältet.
+
+---
+
+**Kostnad:** GitHub Pages och Supabase gratisnivå = 0 kr. Gratisprojekt i Supabase pausas om de
+inte används på en vecka – använder du appen regelbundet händer det inte, och ett pausat projekt
+kan startas igen gratis med ett klick. Exportera gärna en säkerhetskopia ibland (Inställningar → Exportera).
+
+**Snabbtillägg:** Tryck på + och skriv t.ex. `imorgon 14:00 ring leverantören #butik !`.
+Datum, tid, `#butik` och `!` (hög prioritet) känns igen automatiskt. ⌘K / Ctrl+K söker på datorn.
+
+**Uppdatera appen senare:** ladda upp de nya filerna till GitHub och ändra `VERSION` i `sw.js`,
+så hämtar telefonen nya versionen vid nästa start.
+
+---
+
+# Jarvis i HQ (version 1.1)
+
+Under **Butik → Jarvis** (och som ett kort på Idag) ser du Jarvis från datorn: veckans siffror, köpresan,
+det som väntar på ditt ja, kommande kampanjer och vad agenterna har gjort. Du kan skriva uppdrag till Jarvis
+och godkänna saker – datorn kör dem med Claude och svaret dyker upp under *Dina uppdrag*.
+
+## Koppla ihop (en gång, ca 5 minuter)
+1. **Ladda upp den nya versionen** till ditt `hq`-repo på GitHub: alla filer i den här mappen (samma sätt som
+   förra gången, *Add file → Upload files*, skriv över de gamla). **Ladda inte upp config.js** om du har fyllt i dina Supabase-uppgifter i den på GitHub – den finns inte med i HQ-app-1.1.zip av den anledningen. Vänta en minut och öppna HQ – Inställningar
+   ska visa **HQ 1.1.0** längst ner. (Står det 1.0.0: stäng appen helt och öppna igen.)
+2. **Supabase → SQL Editor → New query**: klistra in hela `jarvis.sql` och tryck **Run**.
+3. **I HQ**: Inställningar → *Jarvis på datorn* → **Koppla Jarvis på datorn**. Gör det gärna i HQ på datorn,
+   så kan du kopiera raden direkt.
+4. **På datorn**: klistra in raden i en terminal i vencare-mappen och tryck Enter. Den ser ut så här:
+   `node .team/hq-sync.mjs koppla eyJ1cmwiOi…`
+   Står det "Kopplad" är du klar.
+5. Kör `Installera.cmd` i `.team` en gång till, så startar synken automatiskt när du loggar in på datorn.
+   (Den startar också när du öppnar Vencare Team.)
+
+## Bra att veta
+- **Datorn måste vara igång** för att uppdrag ska köras. I HQ ser du "Datorn är igång" eller när den senast var det.
+- Uppdrag körs med Claude i bakgrunden, ett i taget. Push, publicering, ändringar i Shopify, mejlutskick och
+  annonsändringar blockeras alltid där – Jarvis förbereder dem och lägger dem under *Väntar på ditt ja*.
+- Datorn har en egen nyckel som bara kommer åt Jarvis-raderna, inte resten av HQ. Byt den med *Ny kopplingskod*,
+  eller ta bort den med *Koppla bort datorn*.
+- Logg på datorn: `.team/logg/hq-sync.log`. Stoppa synken: `node .team/hq-sync.mjs stopp`.
