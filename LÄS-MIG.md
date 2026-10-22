@@ -67,3 +67,38 @@ och godkänna saker – datorn kör dem med Claude och svaret dyker upp under *D
 - Datorn har en egen nyckel som bara kommer åt Jarvis-raderna, inte resten av HQ. Byt den med *Ny kopplingskod*,
   eller ta bort den med *Koppla bort datorn*.
 - Logg på datorn: `.team/logg/hq-sync.log`. Stoppa synken: `node .team/hq-sync.mjs stopp`.
+
+---
+
+# Vencare City på nätet (version 1.5)
+
+Staden finns nu i HQ, så du kan ha den uppe på vilken dator som helst, till exempel skoldatorn, även när
+huvuddatorn är avstängd. Öppna HQ → **Jarvis → Öppna Vencare City**, eller gå direkt till
+`https://DITT-ANVÄNDARNAMN.github.io/hq/stad.html`. Logga in i HQ på den datorn först. Staden använder samma inloggning.
+**Helskärm** uppe till höger, och skärmen hålls vaken så länge staden visas.
+
+- **Agenterna och besluten** kommer från huvuddatorns senaste synk. Är den avstängd ser du läget som det var senast.
+- **Nya ordrar firas live** inom cirka 10 sekunder, även när huvuddatorn är avstängd. Det kräver kopplingen nedan.
+  Staden visar bara belopp, antal varor och tid, aldrig kundnamn, så den går bra att ha uppe offentligt.
+
+## 1. Ladda upp den nya versionen
+Ladda upp `index.html`, `app.js`, `sw.js`, `styles.css` och **den nya filen `stad.html`** till ditt `hq`-repo på GitHub, likadant som tidigare.
+(Ladda inte upp `config.js` om den på GitHub redan har dina uppgifter.) Inställningar ska visa **HQ 1.5.0**.
+
+## 2. Koppla live-ordrar (en gång, ca 5 minuter)
+1. **Supabase → SQL Editor → New query**: klistra in hela `stad.sql` och tryck **Run**. Längst ner visas en
+   **token**, funktionens egen nyckel. Den skapas automatiskt och behöver inte sparas någonstans mer.
+2. **Supabase → Edge Functions → Deploy a new function → Via Editor**: namnge den `shopify-order`, ersätt koden med
+   innehållet i `.team/supabase/functions/shopify-order/index.ts` och tryck **Deploy function**.
+   Öppna funktionen → **Settings** → stäng av *Verify JWT* → Save.
+3. **Shopify**: en webhook för **orders/create** (format JSON) till
+   `https://DITT-PROJEKT.supabase.co/functions/v1/shopify-order?k=TOKEN`. Jarvis kan skapa den åt dig via
+   Shopify-kopplingen. Eller gör det i Shopify-admin under Inställningar → Aviseringar → Webhooks.
+4. **Testa:** lägg en testorder (eller vänta på nästa riktiga). Inom cirka 10 sekunder skjuter staden fyrverkeri.
+   Testordrar visas som *Testorder* och räknas inte in i dagens siffror eller milstolpar.
+
+Bara belopp, antal varor och tid sparas, aldrig kunduppgifter. Den som känner till adressen med nyckeln kan
+skicka in låtsasordrar som bara syns som fyrverkeri i staden. Byt nyckel genom att ta bort raden i `stad_inst`,
+köra `stad.sql` igen och uppdatera webhook-adressen.
+
+Chipet **Live** i staden är grönt när allt är kopplat. Visar det **Live av**, klicka på det för en kort guide.

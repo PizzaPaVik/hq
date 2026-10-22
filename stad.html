@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vencare City</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+:root{--ink:#eaf6ff;--ink2:rgba(214,236,255,.72);--ink3:rgba(190,220,245,.5);--hud:#5fe1ff;--pink:#ff7e8d;--gold:#ffd27a;--ok:#5be3a5;--line:rgba(140,210,255,.16);--glass:rgba(8,14,28,.72)}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:#04060c;color:var(--ink);font-family:"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif}
+canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;cursor:default}
+button{font:inherit;cursor:pointer;color:inherit}
+.hud{position:fixed;left:16px;right:16px;top:14px;display:flex;align-items:center;gap:10px;pointer-events:none}
+.hud>*{pointer-events:auto}
+.brand{display:flex;flex-direction:column;line-height:1.15;margin-right:auto;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+.brand b{font-family:"Cascadia Mono",Consolas,monospace;letter-spacing:.32em;font-size:13px;color:var(--hud);font-weight:400}
+.brand span{font-size:13px;color:var(--ink2)}
+.chip{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:10px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(8px);font-size:13px;white-space:nowrap}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.chip.warn i{background:var(--pink);box-shadow:0 0 8px var(--pink)}
+.chip.off i{background:#8aa;box-shadow:none}
+button.chip{color:inherit}
+#h-today b{font-weight:600}
+.side ol{margin:8px 0 0;padding-left:20px;font-size:13.5px;line-height:1.55}
+.side ol li{margin-bottom:6px}
+.side code{font-family:"Cascadia Mono",Consolas,monospace;font-size:12px;background:rgba(95,225,255,.08);padding:1px 5px;border-radius:5px;word-break:break-all}
+.chip .bar{width:60px;height:5px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+.chip .bar u{display:block;height:100%;background:var(--hud);text-decoration:none}
+.chip.warn .bar u{background:var(--pink)}
+.btn{height:36px;padding:0 12px;border-radius:10px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(8px);font-size:13px}
+.btn:hover{border-color:rgba(95,225,255,.45)}
+.btn.p{background:var(--hud);color:#04121a;border:0}
+.pend{background:rgba(255,126,141,.16);border-color:rgba(255,126,141,.5)}
+.side{position:fixed;right:16px;top:64px;width:340px;max-width:calc(100vw - 32px);max-height:calc(100vh - 84px);overflow:auto;padding:16px;border-radius:14px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(12px);transform:translateX(120%);transition:transform .35s cubic-bezier(.32,.72,0,1)}
+.side.on{transform:none}
+.side h2{margin:0 0 2px;font-size:20px;font-weight:600}
+.side .sub{font-size:13px;color:var(--ink3);margin-bottom:12px}
+.side .row{padding:9px 0;border-top:1px solid var(--line);font-size:13.5px}
+.side .row b{display:block;font-weight:500}
+.side .row span{color:var(--ink3);font-size:12.5px}
+.side .x{position:absolute;right:10px;top:10px;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:none}
+.side textarea{width:100%;min-height:64px;margin-top:10px;border-radius:10px;border:1px solid var(--line);background:rgba(4,8,16,.7);color:var(--ink);padding:10px;font:inherit;font-size:14px;resize:vertical}
+.side .acts{display:flex;gap:8px;margin-top:8px}
+.tip{position:fixed;pointer-events:none;padding:6px 10px;border-radius:8px;background:rgba(4,8,16,.9);border:1px solid var(--line);font-size:12.5px;white-space:nowrap;opacity:0;transition:opacity .15s}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);opacity:0;transition:.35s cubic-bezier(.32,.72,0,1);padding:10px 16px;border-radius:12px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(8px);font-size:14px}
+.toast.on{opacity:1;transform:translateX(-50%)}
+.party{position:fixed;left:50%;top:22%;transform:translate(-50%,-10px) scale(.96);opacity:0;transition:.6s cubic-bezier(.32,.72,0,1);text-align:center;pointer-events:none;text-shadow:0 4px 30px rgba(0,0,0,.7)}
+.party.on{opacity:1;transform:translate(-50%,0) scale(1)}
+.party small{display:block;font-family:"Cascadia Mono",Consolas,monospace;letter-spacing:.3em;color:var(--gold);font-size:13px;text-transform:uppercase}
+.party b{display:block;font-size:44px;font-weight:700;letter-spacing:-.02em}
+.party span{display:block;font-size:16px;color:var(--ink2);margin-top:4px}
+.legend{position:fixed;left:16px;bottom:14px;display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink2);padding:8px 12px;border-radius:10px;background:var(--glass);border:1px solid var(--line)}
+.legend em{font-style:normal;display:inline-flex;align-items:center;gap:6px}
+.legend em::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c)}
+@media (max-width:700px){.chip.hide-s,.legend{display:none}}
+@media (prefers-reduced-motion:reduce){.side,.toast,.party{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Vencare City: agenterna som figurer i en framtidsstad"></canvas>
+<div class="hud">
+  <div class="brand"><b>VENCARE CITY</b><span id="h-lead">Laddar staden…</span></div>
+  <div class="chip hide-s" id="h-pro" title="Claude Pro"><span>Claude</span><span class="bar"><u id="h-pro-bar" style="width:0"></u></span><span id="h-pro-t">–</span></div>
+  <button class="btn" id="h-pend" hidden></button>
+  <div class="chip" id="h-today" hidden title="Ordrar i dag"></div>
+  <button class="chip" id="h-live" hidden><i></i><span>Live</span></button>
+  <div class="chip hide-s"><i></i><span id="h-time"></span></div>
+  <button class="btn" id="h-snd" aria-label="Ljud av/på">🔈</button>
+  <button class="btn" id="h-full">Helskärm</button>
+  <button class="btn p" id="h-back">Jarvis</button>
+</div>
+<aside class="side" id="side" aria-live="polite"><button class="x" id="side-x" aria-label="Stäng">✕</button><div id="side-b"></div></aside>
+<div class="tip" id="tip"></div>
+<div class="toast" id="toast"></div>
+<div class="party" id="party"><small id="party-k"></small><b id="party-t"></b><span id="party-s"></span></div>
+<div class="legend"><em style="--c:#5fe1ff">jobbar</em><em style="--c:#ff7e8d">väntar på dig</em><em style="--c:#5be3a5">klar</em><em style="--c:#8aa">ledig</em></div>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const cv = $('#c'), cx = cv.getContext('2d');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+// ---------- Avdelningar och agenter ----------
+const HUS = [
+  { id: 'torn', namn: 'Jarvis-tornet', roll: 'Jarvis och Samordnaren. Här fattas besluten.', gx: 0, gy: 0, w: 2.2, d: 2.2, h: 250, c: '#5fe1ff', agenter: ['jarvis', 'samordnaren'] },
+  { id: 'marknad', namn: 'Marknadshuset', roll: 'Strategi, annonser och resultat', gx: -5, gy: 3, w: 1.8, d: 1.6, h: 150, c: '#ff6b6b', agenter: ['marknadsforaren', 'annonser', 'annonsdashboard'] },
+  { id: 'studio', namn: 'Studion', roll: 'Texter, UGC, video och bild', gx: -1.25, gy: -5.75, w: 1.7, d: 1.7, h: 120, c: '#ffb36b', agenter: ['innehall', 'ugc-fabriken', 'videobild'] },
+  { id: 'butik', namn: 'Butiken', roll: 'Shopify, konvertering, kundservice och ekonomi', gx: 1.5, gy: 5.5, w: 2, d: 1.6, h: 110, c: '#f5d36b', agenter: ['butik', 'konvertering', 'kundservice', 'ekonomi'] },
+  { id: 'post', namn: 'Postkontoret', roll: 'Mejl och Klaviyo', gx: 5.25, gy: -0.25, w: 1.5, d: 1.5, h: 95, c: '#b49cff', agenter: ['mejl'] },
+  { id: 'labb', namn: 'Labbet', roll: 'Research och produkttester', gx: -5.75, gy: -1.25, w: 1.6, d: 1.4, h: 135, c: '#6fb6ff', agenter: ['research', 'produkttestaren'] },
+  { id: 'kvalitet', namn: 'Kvalitetshuset', roll: 'Temat och granskning', gx: -2.75, gy: 5.75, w: 1.5, d: 1.7, h: 105, c: '#7be0a0', agenter: ['granskare', 'tema'] },
+  { id: 'bibliotek', namn: 'Kunskapsbiblioteket', roll: 'Skills som agenterna kan slå upp', gx: 3, gy: -5, w: 1.7, d: 1.5, h: 85, c: '#e7d7ff', agenter: [] },
+];
+const NAMN = { jarvis: 'Jarvis', samordnaren: 'Samordnaren', marknadsforaren: 'Marknadsföraren', annonser: 'Annonser', annonsdashboard: 'Annonsdashboard', innehall: 'Innehåll', 'ugc-fabriken': 'UGC-fabriken', videobild: 'Video & bild', butik: 'Butik', konvertering: 'Konvertering', kundservice: 'Kundservice', ekonomi: 'Ekonomi', mejl: 'Mejl', research: 'Research', produkttestaren: 'Produkttestaren', granskare: 'Granskare', tema: 'Tema' };
+const husFor = id => HUS.find(h => h.agenter.includes(id)) || HUS[0];
+const PLATS = { gx: 2.2, gy: 2.2 }; // Beslutstorget framför tornet
+
+// ---------- Isometri ----------
+let W = 0, H = 0, DPR = 1, TW = 64, TH = 32, OX = 0, OY = 0, zoom = 1;
+const iso = (gx, gy) => ({ x: OX + (gx - gy) * TW / 2 * zoom, y: OY + (gx + gy) * TH / 2 * zoom });
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR; cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  zoom = Math.max(.55, Math.min(1.35, Math.min(W / 1180, H / 760)));
+  OX = W / 2; OY = H * .52;
+}
+addEventListener('resize', resize); resize();
+
+// ---------- Data ----------
+let D = {}, laddad = false;
+const P = () => Array.isArray(D.pending) ? D.pending : [];
+const L = () => Array.isArray(D.log) ? D.log : [];
+const ålder = t => { try { return Date.now() - new Date(t).getTime(); } catch { return 1e12; } };
+function läge(id) {
+  const l = L().filter(r => r.agent === id);
+  if (l.some(r => r.status === 'pågår')) return { s: 'jobbar', t: l.find(r => r.status === 'pågår').task };
+  const p = P().find(x => x.agent === id); if (p) return { s: 'väntar', t: p.title };
+  const k = l.find(r => r.status === 'klar' && ålder(r.tid) < 6 * 3600e3); if (k) return { s: 'klar', t: k.task };
+  return { s: 'ledig', t: (l[0] && l[0].task) || '' };
+}
+// Två lägen: lokalt (Vencare Team på datorn, data från /data) och i HQ på nätet
+// (samma inloggning som HQ, data från Supabase – fungerar även när datorn är avstängd).
+const LOKAL = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+let info = '';
+const HQ = (() => {
+  const läs = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
+  const cfg = () => { const c = läs('hq.cfg.v1') || {}, C = window.HQ_CONFIG || {}; return { url: String(c.url || C.supabaseUrl || '').trim().replace(/\/+$/, ''), key: String(c.key || C.supabaseAnonKey || '').trim() }; };
+  async function token() {
+    const s = läs('hq.session.v1'); if (!s || !s.access_token) throw new Error('auth');
+    if (Date.now() < s.expires_at - 60000) return s.access_token;
+    const { url, key } = cfg();
+    const r = await fetch(url + '/auth/v1/token?grant_type=refresh_token', { method: 'POST', headers: { apikey: key, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: s.refresh_token }) });
+    if (!r.ok) throw new Error(r.status < 500 ? 'auth' : 'nät');
+    const j = await r.json();
+    try { localStorage.setItem('hq.session.v1', JSON.stringify({ ...s, access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Date.now() + (j.expires_in || 3600) * 1000 })); } catch {}
+    return j.access_token;
+  }
+  async function rest(path, opts = {}) {
+    const { url, key } = cfg(); if (!url || !key) throw new Error('cfg');
+    const t = await token();
+    const r = await fetch(`${url}/rest/v1/${path}`, { ...opts, cache: 'no-store', headers: { apikey: key, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+    if (r.status === 401) throw new Error('auth');
+    const txt = await r.text();
+    if (!r.ok) { const e = new Error(txt || 'HTTP ' + r.status); e.status = r.status; throw e; }
+    return txt ? JSON.parse(txt) : null;
+  }
+  function användare() { try { const s = läs('hq.session.v1'), p = s.access_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(atob(p)).sub || ''; } catch { return ''; } }
+  return { rest, cfg, användare };
+})();
+const felText = e => e.message === 'cfg' || e.message === 'auth' ? 'Logga in i HQ först – öppna HQ, logga in och kom tillbaka hit.' : (e instanceof TypeError || e.message === 'nät') ? 'Ingen kontakt med Supabase just nu. Försöker igen…' : 'Kunde inte hämta läget: ' + e.message.slice(0, 80);
+async function hämta() {
+  if (LOKAL) { try { const r = await fetch('/data', { cache: 'no-store' }); if (r.ok) { D = await r.json(); laddad = true; uppdatera(); } } catch {} return; }
+  try {
+    const rad = (await HQ.rest('items?kind=eq.jarvis&deleted=is.false&select=data&limit=1'))[0];
+    const s = rad && rad.data;
+    // Utan hela historiken (hist) firas inga milstolpar – summan sedan start skulle bli fel.
+    if (s) D = { ...s, history: { days: Array.isArray(s.hist) ? s.hist : [] } };
+    laddad = true; info = s ? '' : 'Jarvis på datorn har inte skickat något till HQ än.'; uppdatera();
+  } catch (e) { info = felText(e); }
+}
+
+// ---------- Live-ordrar (Shopify → Supabase, utan datorn) ----------
+let LIVE = [], liveOk = null;
+const dagNyckel = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+async function hämtaOrdrar() {
+  if (LOKAL) return;
+  try {
+    const rader = await HQ.rest('live_orders?select=id,total,currency,items,test,created_at&order=created_at.desc&limit=100') || [];
+    liveOk = true; LIVE = rader;
+    const sedda = store.get('stad-sedda', null), nya = sedda ? rader.filter(o => !sedda.includes(o.id)) : [];
+    store.set('stad-sedda', rader.map(o => o.id));
+    nya.reverse().forEach((o, i) => setTimeout(() => nyOrder(o), i * 7000));
+    if (nya.some(o => !o.test)) setTimeout(() => milstolpar(), nya.length * 7000);
+  } catch (e) { if (e.status === 404 || /live_orders/.test(e.message)) liveOk = false; }
+  rita();
+  function rita() {
+    const l = $('#h-live'); l.hidden = liveOk === null; l.classList.toggle('off', !liveOk);
+    l.querySelector('span').textContent = liveOk ? 'Live' : 'Live av'; l.title = liveOk ? 'Nya ordrar firas inom 10 sekunder' : 'Live-ordrar är inte kopplade än – klicka för hur';
+    const idag = dagNyckel(Date.now()), d = LIVE.filter(o => !o.test && dagNyckel(o.created_at) === idag), t = $('#h-today');
+    t.hidden = !liveOk; t.innerHTML = `I dag <b>${d.length}</b> ${d.length === 1 ? 'order' : 'ordrar'} · <b>${fmt(d.reduce((a, o) => a + (+o.total || 0), 0))} kr</b>`;
+  }
+}
+function nyOrder(o) {
+  const tid = new Date(o.created_at).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+  fira(o.test ? 'Testorder' : 'Ny order', fmt(+o.total || 0) + ' kr', (o.items ? `${o.items} ${o.items === 1 ? 'produkt' : 'produkter'} · ` : '') + 'kl ' + tid, (+o.total || 0) >= 1000 ? 2 : 1);
+}
+function visaLive() {
+  const url = HQ.cfg().url;
+  if (liveOk) return öppna(`<h2>Live-ordrar</h2><div class="sub">Kopplat. Shopify skickar varje ny order direkt hit, även när datorn är avstängd.</div>` + LIVE.slice(0, 8).map(o => `<div class="row"><b>${fmt(+o.total || 0)} kr${o.test ? ' · test' : ''}</b><span>${esc(new Date(o.created_at).toLocaleString('sv-SE', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}${o.items ? ' · ' + o.items + ' st' : ''}</span></div>`).join('') + (LIVE.length ? '' : '<div class="row"><span>Inga ordrar än. Nästa order firas här.</span></div>'));
+  öppna(`<h2>Koppla live-ordrar</h2><div class="sub">En gång, ca 10 minuter. Sedan firar staden varje order direkt – även när datorn är avstängd.</div>
+    <ol><li><b>Supabase → SQL Editor:</b> kör <code>stad.sql</code>. Längst ner visas en nyckel (token).</li>
+    <li><b>Supabase → Edge Functions → Deploy a new function → Via Editor:</b> namn <code>shopify-order</code>, klistra in <code>.team/supabase/functions/shopify-order/index.ts</code>, tryck Deploy och stäng av <b>Verify JWT</b>.</li>
+    <li><b>Shopify:</b> en webhook för <i>orders/create</i> till <code>${esc(url ? url + '/functions/v1/shopify-order?k=NYCKELN' : 'https://DITT-PROJEKT.supabase.co/functions/v1/shopify-order?k=NYCKELN')}</code>. Jarvis kan skapa den åt dig.</li></ol>
+    <div class="sub" style="margin-top:10px">Steg för steg finns i LÄS-MIG.md under "Vencare City på nätet".</div>`);
+}
+
+// ---------- Figurer ----------
+const FIG = [];
+Object.keys(NAMN).forEach((id, i) => {
+  const h = husFor(id), a = (i * 2.399) % (Math.PI * 2);
+  const hem = { gx: h.gx + Math.cos(a) * (h.w / 2 + .7), gy: h.gy + Math.sin(a) * (h.d / 2 + .7) };
+  FIG.push({ id, h, hem, gx: hem.gx, gy: hem.gy, tx: hem.gx, ty: hem.gy, fas: Math.random() * 6, vänta: Math.random() * 4, c: h.c, läge: { s: 'ledig', t: '' } });
+});
+function mål(f) {
+  const s = f.läge.s;
+  if (s === 'väntar') return { gx: PLATS.gx + (Math.random() - .5) * 2.4, gy: PLATS.gy + (Math.random() - .5) * 1.2 };
+  if (s === 'jobbar') return { gx: f.h.gx + (Math.random() - .5) * .5, gy: f.h.gy + f.h.d / 2 + .45 };
+  if (s === 'ledig' && Math.random() < .25) { const b = HUS.find(x => x.id === 'bibliotek'); return { gx: b.gx - .2 + Math.random() * .4, gy: b.gy + b.d / 2 + .5 }; }
+  if (s === 'ledig' && Math.random() < .3) return { gx: PLATS.gx + (Math.random() - .5) * 3, gy: PLATS.gy + 1 + Math.random() };
+  return { gx: f.hem.gx + (Math.random() - .5) * .8, gy: f.hem.gy + (Math.random() - .5) * .8 };
+}
+function uppdatera() {
+  FIG.forEach(f => { const n = läge(f.id); if (n.s !== f.läge.s) { f.läge = n; const m = mål(f); f.tx = m.gx; f.ty = m.gy; } else f.läge = n; });
+  const p = P().length; const pe = $('#h-pend'); pe.hidden = !p; pe.textContent = p + (p === 1 ? ' beslut väntar' : ' beslut väntar'); pe.classList.toggle('pend', !!p);
+  const run = FIG.filter(f => f.läge.s === 'jobbar').length;
+  $('#h-lead').textContent = run ? `${run} ${run === 1 ? 'agent jobbar' : 'agenter jobbar'} just nu` : (p ? 'Teamet väntar på dina beslut' : 'Lugnt i staden');
+  const pl = D.plan && D.plan.fiveHour; const pro = $('#h-pro');
+  if (pl && pl.pct != null && (!pl.resetsAt || Date.parse(pl.resetsAt) > Date.now())) { $('#h-pro-bar').style.width = Math.min(100, pl.pct) + '%'; $('#h-pro-t').textContent = pl.pct + ' %'; pro.classList.toggle('warn', pl.pct >= 70); }
+  else { $('#h-pro-t').textContent = 'ok'; $('#h-pro-bar').style.width = '0'; }
+  milstolpar();
+}
+
+// ---------- Milstolpar och fest ----------
+const fmt = n => Math.round(n).toLocaleString('sv-SE');
+function milstolpar() {
+  const hist = (D.history && Array.isArray(D.history.days) ? D.history.days : []).map(r => [r[0], +r[1] || 0, +r[2] || 0]);
+  // Live-ordrar som kommit efter Jarvis senaste siffror räknas in, så att milstolpar firas även när datorn är av.
+  const sist = Date.parse(D.salesUpdated || ''), sistaDag = hist.length ? hist[hist.length - 1][0] : '';
+  LIVE.filter(o => !o.test && (isNaN(sist) ? dagNyckel(o.created_at) > sistaDag : Date.parse(o.created_at) > sist)).forEach(o => {
+    const k = dagNyckel(o.created_at), r = hist.find(x => x[0] === k);
+    if (r) { r[1] += 1; r[2] += +o.total || 0; } else hist.push([k, 1, +o.total || 0]);
+  });
+  if (!hist.length) return;
+  const tot = hist.reduce((a, r) => a + (+r[2] || 0), 0), ord = hist.reduce((a, r) => a + (+r[1] || 0), 0);
+  const firat = store.get('stad-firat', null), ny = [];
+  const bästDag = Math.max(0, ...hist.map(r => +r[2] || 0));
+  const veckor = {}; hist.forEach(r => { const d = new Date(r[0] + 'T12:00:00'), m = new Date(d); m.setDate(d.getDate() - ((d.getDay() + 6) % 7)); const k = m.toISOString().slice(0, 10); veckor[k] = (veckor[k] || 0) + (+r[2] || 0); });
+  const bästVecka = Math.max(0, ...Object.values(veckor));
+  const f = firat || { ord: false, oms: [], dag: bästDag, vecka: bästVecka };
+  if (ord >= 1 && !f.ord) { f.ord = true; ny.push(['Milstolpe', 'Första ordern!', 'Vencare har sålt sin första produkt. Det här är början.', 3]); }
+  for (const g of [10000, 50000, 100000, 500000, 1000000]) if (tot >= g && !f.oms.includes(g)) { f.oms.push(g); ny.push(['Omsättning', fmt(g) + ' kr', 'Total försäljning sedan start: ' + fmt(tot) + ' kr', g >= 100000 ? 3 : 2]); }
+  // Rekord firas en gång per dag och vecka, inte vid varje ny order samma dag.
+  const idagK = dagNyckel(Date.now()), veckaK = Object.keys(veckor).sort().pop() || '';
+  if (firat && bästDag > (f.dag || 0) && bästDag > 0 && f.dagFirad !== idagK) { f.dagFirad = idagK; ny.push(['Rekord', 'Bästa dagen hittills', fmt(bästDag) + ' kr på en dag', 1]); }
+  if (firat && bästVecka > (f.vecka || 0) && bästVecka > 0 && f.veckaFirad !== veckaK) { f.veckaFirad = veckaK; ny.push(['Rekord', 'Bästa veckan hittills', fmt(bästVecka) + ' kr på en vecka', 1]); }
+  f.dag = Math.max(f.dag || 0, bästDag); f.vecka = Math.max(f.vecka || 0, bästVecka);
+  store.set('stad-firat', f);
+  if (!firat) return; // första gången: spara läget utan att fira gamla saker
+  ny.forEach((x, i) => setTimeout(() => fira(...x), i * 6000));
+}
+const RAK = [], PART = [];
+let partyT = 0;
+function fira(k, t, s, styrka = 1) {
+  $('#party-k').textContent = k; $('#party-t').textContent = t; $('#party-s').textContent = s;
+  $('#party').classList.add('on'); clearTimeout(partyT); partyT = setTimeout(() => $('#party').classList.remove('on'), 6500);
+  const n = reduce ? 0 : 6 + styrka * 6;
+  for (let i = 0; i < n; i++) setTimeout(() => RAK.push({ x: W * (.2 + Math.random() * .6), y: H * .92, vx: (Math.random() - .5) * 1.2, vy: -(7.5 + Math.random() * 3.5), liv: 0, färg: ['#ff7e8d', '#5fe1ff', '#ffd27a', '#b49cff', '#5be3a5'][i % 5] }), i * 260);
+  FIG.forEach(f => f.jubel = 4);
+  ljud.fanfar();
+}
+// ---------- Ljud (bara vid fest) ----------
+const ljud = (() => {
+  let ac = null, på = store.get('stad-ljud', true);
+  const knapp = $('#h-snd'); const rita = () => { knapp.textContent = på ? '🔈' : '🔇'; knapp.setAttribute('aria-label', på ? 'Stäng av ljud' : 'Slå på ljud'); }; rita();
+  knapp.onclick = () => { på = !på; store.set('stad-ljud', på); rita(); };
+  const ctx = () => { if (!ac) try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch {} if (ac && ac.state === 'suspended') ac.resume(); return ac; };
+  const brus = (t0, dur, f0, f1, vol) => { const a = ctx(); if (!a) return; const b = a.createBuffer(1, a.sampleRate * dur, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); const s = a.createBufferSource(); s.buffer = b; const fl = a.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.setValueAtTime(f0, a.currentTime + t0); fl.frequency.exponentialRampToValueAtTime(f1, a.currentTime + t0 + dur); const g = a.createGain(); g.gain.value = vol; s.connect(fl).connect(g).connect(a.destination); s.start(a.currentTime + t0); };
+  return {
+    uppskjut() { if (på) brus(0, .7, 400, 2400, .12); },
+    smäll() { if (på) { brus(0, .5, 1800, 200, .35); } },
+    fanfar() { if (!på) return; const a = ctx(); if (!a) return; [523, 659, 784, 1047].forEach((hz, i) => { const o = a.createOscillator(), g = a.createGain(); o.type = 'triangle'; o.frequency.value = hz; g.gain.setValueAtTime(0, a.currentTime + i * .12); g.gain.linearRampToValueAtTime(.08, a.currentTime + i * .12 + .03); g.gain.exponentialRampToValueAtTime(.001, a.currentTime + i * .12 + .6); o.connect(g).connect(a.destination); o.start(a.currentTime + i * .12); o.stop(a.currentTime + i * .12 + .7); }); },
+  };
+})();
+
+// ---------- Ritning ----------
+const nu = () => new Date();
+function himmel() {
+  const h = nu().getHours() + nu().getMinutes() / 60;
+  const dag = Math.max(0, Math.min(1, Math.sin((h - 6) / 12 * Math.PI))); // 0 natt, 1 mitt på dagen
+  const g = cx.createLinearGradient(0, 0, 0, H);
+  const top = dag > .05 ? `rgb(${12 + 40 * dag},${24 + 70 * dag},${48 + 110 * dag})` : '#04060f';
+  const bot = dag > .05 ? `rgb(${30 + 120 * dag},${40 + 90 * dag},${70 + 80 * dag})` : '#0b1022';
+  g.addColorStop(0, top); g.addColorStop(1, bot); cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+  if (dag < .35) { cx.fillStyle = `rgba(255,255,255,${.55 * (1 - dag / .35)})`; for (let i = 0; i < 90; i++) { const x = (i * 137.5 % 1) * W || (i * 97) % W, y = ((i * 61) % 100) / 100 * H * .45; cx.fillRect((i * 211) % W, y, 1.2, 1.2); } }
+  return dag;
+}
+function poly(pts, fill, stroke) { cx.beginPath(); pts.forEach((p, i) => i ? cx.lineTo(p.x, p.y) : cx.moveTo(p.x, p.y)); cx.closePath(); if (fill) { cx.fillStyle = fill; cx.fill(); } if (stroke) { cx.strokeStyle = stroke; cx.lineWidth = 1; cx.stroke(); } }
+function mark(dag, t) {
+  // markplatta
+  const R = 9.5;
+  poly([iso(-R, -R), iso(R, -R), iso(R, R), iso(-R, R)], dag > .3 ? 'rgba(30,44,62,.92)' : 'rgba(10,16,30,.95)', 'rgba(95,225,255,.18)');
+  cx.strokeStyle = 'rgba(95,225,255,.06)'; cx.lineWidth = 1;
+  for (let i = -R; i <= R; i += 1) { let a = iso(i, -R), b = iso(i, R); cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); a = iso(-R, i); b = iso(R, i); cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); }
+  // vägar från tornet till husen, med ljus som rör sig
+  HUS.slice(1).forEach((h, k) => {
+    const a = iso(0, 0), b = iso(h.gx, h.gy);
+    cx.strokeStyle = 'rgba(95,225,255,.16)'; cx.lineWidth = 7 * zoom; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke();
+    cx.strokeStyle = 'rgba(95,225,255,.35)'; cx.lineWidth = 1; cx.setLineDash([4, 10]); cx.lineDashOffset = -t / 40; cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(b.x, b.y); cx.stroke(); cx.setLineDash([]);
+    if (!reduce) { const p = ((t / 4000 + k * .37) % 1), x = a.x + (b.x - a.x) * p, y = a.y + (b.y - a.y) * p; cx.fillStyle = 'rgba(160,240,255,.9)'; cx.beginPath(); cx.arc(x, y, 1.8 * zoom, 0, 7); cx.fill(); }
+  });
+  // beslutstorget
+  const pc = iso(PLATS.gx, PLATS.gy), np = P().length;
+  cx.save(); cx.translate(pc.x, pc.y); cx.scale(1, .5); cx.beginPath(); cx.arc(0, 0, 70 * zoom, 0, 7); cx.fillStyle = np ? 'rgba(255,126,141,.10)' : 'rgba(95,225,255,.06)'; cx.fill(); cx.strokeStyle = np ? 'rgba(255,126,141,.45)' : 'rgba(95,225,255,.25)'; cx.lineWidth = 1.5; cx.stroke(); cx.restore();
+  cx.fillStyle = np ? 'rgba(255,170,180,.9)' : 'rgba(190,220,245,.55)'; cx.font = `${11 * zoom}px Cascadia Mono, Consolas, monospace`; cx.textAlign = 'center'; cx.fillText('BESLUTSTORGET', pc.x, pc.y + 44 * zoom);
+}
+function hus(h, dag, t) {
+  const x0 = h.gx - h.w / 2, y0 = h.gy - h.d / 2, x1 = h.gx + h.w / 2, y1 = h.gy + h.d / 2, Hh = h.h * zoom;
+  const A = iso(x0, y1), B = iso(x1, y1), C = iso(x1, y0), E = iso(x0, y0);
+  const up = p => ({ x: p.x, y: p.y - Hh });
+  const aktiv = FIG.filter(f => f.h === h && f.läge.s === 'jobbar').length;
+  // skugga
+  cx.fillStyle = 'rgba(0,0,0,.28)'; poly([A, B, { x: B.x + 30 * zoom, y: B.y + 6 * zoom }, { x: A.x + 30 * zoom, y: A.y + 6 * zoom }], 'rgba(0,0,0,.22)');
+  // fasader (glas)
+  const vänster = cx.createLinearGradient(A.x, A.y - Hh, A.x, A.y); vänster.addColorStop(0, 'rgba(40,70,110,.95)'); vänster.addColorStop(1, 'rgba(14,24,42,.98)');
+  const höger = cx.createLinearGradient(B.x, B.y - Hh, B.x, B.y); höger.addColorStop(0, 'rgba(26,48,80,.95)'); höger.addColorStop(1, 'rgba(8,14,28,.98)');
+  poly([A, B, up(B), up(A)], vänster);
+  poly([B, C, up(C), up(B)], höger);
+  // fönster
+  const rader = Math.max(3, Math.floor(h.h / 16)), kol = 5;
+  const tänd = (i, j, sida) => { const s = Math.sin(i * 12.9898 + j * 78.233 + sida * 3.1 + h.gx) * 43758.5453; const r = s - Math.floor(s); return r < (dag > .5 ? .18 : .55) + aktiv * .12; };
+  [[A, B, 0], [B, C, 1]].forEach(([p, q, sida]) => {
+    for (let i = 0; i < rader; i++) for (let j = 0; j < kol; j++) {
+      const u0 = (j + .2) / kol, u1 = (j + .8) / kol, v0 = (i + .25) / rader, v1 = (i + .75) / rader;
+      const pt = (u, v) => ({ x: p.x + (q.x - p.x) * u, y: p.y + (q.y - p.y) * u - Hh * (1 - v) });
+      const på = tänd(i, j, sida);
+      poly([pt(u0, v1), pt(u1, v1), pt(u1, v0), pt(u0, v0)], på ? (sida ? 'rgba(255,214,150,.75)' : 'rgba(255,224,170,.85)') : 'rgba(120,180,230,.12)');
+    }
+  });
+  // tak med neonkant
+  poly([up(A), up(B), up(C), up(E)], 'rgba(30,50,80,.98)', h.c);
+  cx.save(); cx.shadowColor = h.c; cx.shadowBlur = aktiv && !reduce ? 18 + 6 * Math.sin(t / 300) : 8; poly([up(A), up(B), up(C), up(E)], null, h.c); cx.restore();
+  // antenn/spira på tornet
+  const mid = { x: (up(A).x + up(C).x) / 2, y: (up(A).y + up(C).y) / 2 };
+  if (h.id === 'torn') {
+    cx.strokeStyle = h.c; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(mid.x, mid.y); cx.lineTo(mid.x, mid.y - 60 * zoom); cx.stroke();
+    cx.fillStyle = `rgba(95,225,255,${.6 + .4 * Math.sin(t / 400)})`; cx.beginPath(); cx.arc(mid.x, mid.y - 62 * zoom, 4 * zoom, 0, 7); cx.fill();
+    if (!reduce) { cx.strokeStyle = 'rgba(95,225,255,.25)'; cx.beginPath(); cx.arc(mid.x, mid.y - 62 * zoom, (10 + (t / 30) % 30) * zoom, 0, 7); cx.stroke(); }
+  }
+  if (h.id === 'bibliotek') { const n = Math.min(12, (D.skills || []).length); for (let i = 0; i < n; i++) { cx.fillStyle = ['#ff7e8d', '#5fe1ff', '#ffd27a', '#b49cff'][i % 4]; cx.fillRect(mid.x - 24 * zoom + i * 4 * zoom, mid.y - 10 * zoom, 3 * zoom, 8 * zoom); } }
+  // skylt
+  const sky = { x: mid.x, y: mid.y - (h.id === 'torn' ? 78 : 14) * zoom };
+  cx.font = `600 ${12 * zoom}px Segoe UI, system-ui, sans-serif`; const tw = cx.measureText(h.namn).width + 16;
+  cx.fillStyle = 'rgba(4,8,16,.78)'; cx.strokeStyle = h.c; cx.lineWidth = 1; cx.beginPath(); cx.roundRect(sky.x - tw / 2, sky.y - 26 * zoom, tw, 20 * zoom, 6); cx.fill(); cx.stroke();
+  cx.fillStyle = '#eaf6ff'; cx.textAlign = 'center'; cx.fillText(h.namn, sky.x, sky.y - 12 * zoom);
+  if (aktiv) { cx.fillStyle = h.c; cx.font = `${10.5 * zoom}px Cascadia Mono, Consolas, monospace`; cx.fillText(aktiv + ' jobbar', sky.x, sky.y + 2 * zoom); }
+  h._box = { x: Math.min(A.x, E.x) - 4, y: up(E).y - (h.id === 'torn' ? 90 : 30) * zoom, w: Math.abs(C.x - A.x) + 8, h: A.y - up(E).y + (h.id === 'torn' ? 90 : 30) * zoom };
+}
+const FÄRG = { jobbar: '#5fe1ff', väntar: '#ff7e8d', klar: '#5be3a5', ledig: '#8aa' };
+function figur(f, t, dt) {
+  // rörelse
+  const dx = f.tx - f.gx, dy = f.ty - f.gy, dist = Math.hypot(dx, dy), v = 0.0009 * dt * (reduce ? 3 : 1);
+  if (dist > .02) { f.gx += dx / dist * Math.min(v, dist); f.gy += dy / dist * Math.min(v, dist); f.går = true; }
+  else { f.går = false; f.vänta -= dt / 1000; if (f.vänta <= 0) { const m = mål(f); f.tx = m.gx; f.ty = m.gy; f.vänta = f.läge.s === 'ledig' ? 6 + Math.random() * 10 : 3 + Math.random() * 4; } }
+  const p = iso(f.gx, f.gy), z = zoom, hopp = f.jubel > 0 ? Math.abs(Math.sin(t / 120)) * 10 * z : (f.går && !reduce ? Math.abs(Math.sin(t / 110 + f.fas)) * 1.6 * z : 0);
+  if (f.jubel > 0) f.jubel -= dt / 1000;
+  cx.fillStyle = 'rgba(0,0,0,.35)'; cx.beginPath(); cx.ellipse(p.x, p.y, 6 * z, 2.6 * z, 0, 0, 7); cx.fill();
+  const y = p.y - hopp;
+  cx.fillStyle = f.c; cx.beginPath(); cx.roundRect(p.x - 4 * z, y - 16 * z, 8 * z, 12 * z, 3 * z); cx.fill();
+  cx.fillStyle = '#f3e3d6'; cx.beginPath(); cx.arc(p.x, y - 20 * z, 3.6 * z, 0, 7); cx.fill();
+  cx.fillStyle = 'rgba(20,30,50,.9)'; cx.fillRect(p.x - 3.5 * z, y - 22.5 * z, 7 * z, 2 * z);
+  // statusljus
+  const s = f.läge.s; cx.fillStyle = FÄRG[s]; cx.beginPath(); cx.arc(p.x, y - 28 * z, 2.4 * z, 0, 7); cx.fill();
+  if (s === 'väntar') { cx.fillStyle = '#ff7e8d'; cx.font = `700 ${13 * z}px Segoe UI, sans-serif`; cx.textAlign = 'center'; cx.fillText('!', p.x, y - 33 * z + Math.sin(t / 250) * 2); }
+  if (s === 'klar') { cx.fillStyle = '#5be3a5'; cx.font = `700 ${12 * z}px Segoe UI, sans-serif`; cx.textAlign = 'center'; cx.fillText('✓', p.x, y - 33 * z); }
+  if (s === 'jobbar' && !reduce) { cx.strokeStyle = 'rgba(95,225,255,.5)'; cx.beginPath(); cx.arc(p.x, y - 28 * z, (4 + (t / 80) % 8) * z, 0, 7); cx.stroke(); }
+  f._p = { x: p.x, y: y - 14 * z };
+}
+function pratbubbla(f) {
+  if (!f._p || f.läge.s === 'ledig' || !f.läge.t) return;
+  const txt = (NAMN[f.id] + ': ' + f.läge.t).slice(0, 46) + ((NAMN[f.id] + ': ' + f.läge.t).length > 46 ? '…' : '');
+  cx.font = `${11 * zoom}px Segoe UI, system-ui, sans-serif`; const w = cx.measureText(txt).width + 14, x = f._p.x - w / 2, y = f._p.y - 44 * zoom;
+  cx.fillStyle = 'rgba(4,8,16,.85)'; cx.strokeStyle = FÄRG[f.läge.s]; cx.lineWidth = 1; cx.beginPath(); cx.roundRect(x, y - 16 * zoom, w, 20 * zoom, 6); cx.fill(); cx.stroke();
+  cx.fillStyle = '#eaf6ff'; cx.textAlign = 'center'; cx.fillText(txt, f._p.x, y - 2 * zoom);
+}
+function fyrverkeri(dt) {
+  for (let i = RAK.length - 1; i >= 0; i--) {
+    const r = RAK[i]; r.x += r.vx; r.y += r.vy; r.vy += .12; r.liv += dt;
+    cx.fillStyle = r.färg; cx.beginPath(); cx.arc(r.x, r.y, 2.2, 0, 7); cx.fill();
+    cx.fillStyle = 'rgba(255,230,180,.35)'; cx.fillRect(r.x - .6, r.y, 1.2, 10);
+    if (r.liv === dt) ljud.uppskjut();
+    if (r.vy >= -.5) { RAK.splice(i, 1); ljud.smäll(); for (let k = 0; k < 70; k++) { const a = Math.random() * 7, s = 1 + Math.random() * 4.2; PART.push({ x: r.x, y: r.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, liv: 1, färg: k % 4 ? r.färg : '#fff' }); } }
+  }
+  for (let i = PART.length - 1; i >= 0; i--) { const p = PART[i]; p.x += p.vx; p.y += p.vy; p.vy += .05; p.vx *= .985; p.liv -= dt / 1600; if (p.liv <= 0) { PART.splice(i, 1); continue; } cx.globalAlpha = Math.max(0, p.liv); cx.fillStyle = p.färg; cx.fillRect(p.x, p.y, 2, 2); } cx.globalAlpha = 1;
+}
+let senast = performance.now();
+function loop(t) {
+  const dt = Math.min(64, t - senast); senast = t;
+  const dag = himmel(); mark(dag, t);
+  // rita hus och figurer i djupordning
+  const saker = [...HUS.map(h => ({ k: h.gx + h.gy + h.d / 2, h })), ...FIG.map(f => ({ k: f.gx + f.gy, f }))].sort((a, b) => a.k - b.k);
+  saker.forEach(s => s.h ? hus(s.h, dag, t) : figur(s.f, t, dt));
+  if (!document.getElementById('party').classList.contains('on')) FIG.forEach(pratbubbla);
+  fyrverkeri(dt);
+  if (info || !laddad) { cx.fillStyle = 'rgba(190,220,245,.75)'; cx.font = '14px Segoe UI, sans-serif'; cx.textAlign = 'center'; cx.fillText(info || 'Hämtar läget från Jarvis…', W / 2, H - 70); }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// ---------- Klick och hovring ----------
+function träff(x, y) {
+  const f = FIG.find(f => f._p && Math.hypot(f._p.x - x, f._p.y - y) < 14 * zoom); if (f) return { f };
+  const h = [...HUS].reverse().find(h => h._box && x > h._box.x && x < h._box.x + h._box.w && y > h._box.y && y < h._box.y + h._box.h); if (h) return { h };
+  const pc = iso(PLATS.gx, PLATS.gy); if (Math.hypot((x - pc.x), (y - pc.y) * 2) < 70 * zoom) return { torg: true };
+  return null;
+}
+const tip = $('#tip');
+cv.addEventListener('mousemove', e => { const r = träff(e.clientX, e.clientY); cv.style.cursor = r ? 'pointer' : 'default'; if (r) { tip.textContent = r.f ? `${NAMN[r.f.id]} · ${r.f.läge.s}` : r.h ? r.h.namn : `Beslutstorget · ${P().length} väntar`; tip.style.left = e.clientX + 14 + 'px'; tip.style.top = e.clientY + 14 + 'px'; tip.style.opacity = 1; } else tip.style.opacity = 0; });
+cv.addEventListener('mouseleave', () => tip.style.opacity = 0);
+cv.addEventListener('click', e => { const r = träff(e.clientX, e.clientY); if (!r) return stäng(); r.f ? visaAgent(r.f.id) : r.h ? visaHus(r.h) : visaBeslut(); });
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const side = $('#side'), sb = $('#side-b');
+function öppna(html) { sb.innerHTML = html; side.classList.add('on'); }
+function stäng() { side.classList.remove('on'); }
+$('#side-x').onclick = stäng; addEventListener('keydown', e => { if (e.key === 'Escape') stäng(); });
+const ge = (id, ph) => `<textarea id="s-q" placeholder="${esc(ph)}"></textarea><div class="acts"><button class="btn p" data-ge="${esc(id)}">Ge uppdrag</button></div>`;
+function visaAgent(id) {
+  const f = FIG.find(x => x.id === id), l = L().filter(r => r.agent === id).slice(0, 5), p = P().filter(x => x.agent === id), hit = (D.hit || {})[id];
+  öppna(`<h2>${esc(NAMN[id])}</h2><div class="sub">${esc(f.h.namn)} · ${esc(f.läge.s)}${hit && hit.ja + hit.nej ? ` · ${Math.round(hit.ja / (hit.ja + hit.nej) * 100)} % av förslagen godkända` : ''}</div>`
+    + p.map(x => `<div class="row"><b>Väntar på dig: ${esc(x.title)}</b><span>${esc(x.detail || '')}</span></div>`).join('')
+    + (l.length ? l.map(r => `<div class="row"><b>${esc(r.task)}</b><span>${esc(r.status)}${r.result ? ' · ' + esc(r.result) : ''}</span></div>`).join('') : '<div class="row"><span>Inga uppdrag i loggen än.</span></div>')
+    + ge(id, `Vad ska ${NAMN[id]} göra?`));
+}
+function visaHus(h) {
+  öppna(`<h2>${esc(h.namn)}</h2><div class="sub">${esc(h.roll)}</div>`
+    + (h.id === 'bibliotek' ? (D.skills || []).map(s => `<div class="row"><b>${esc(s.name)}</b><span>${esc((s.description || '').slice(0, 120))}</span></div>`).join('') + `<div class="acts"><button class="btn" data-skill>Leta efter nya skills</button></div>`
+      : h.agenter.map(id => { const f = FIG.find(x => x.id === id); return `<div class="row" data-agent="${id}" style="cursor:pointer"><b>${esc(NAMN[id])}</b><span>${esc(f.läge.s)}${f.läge.t ? ' · ' + esc(f.läge.t) : ''}</span></div>`; }).join('')));
+}
+function visaBeslut() {
+  const p = P();
+  öppna(`<h2>Beslutstorget</h2><div class="sub">${p.length ? p.length + ' väntar på dig' : 'Inget väntar på dig'}</div>` + p.map(x => `<div class="row"><b>${esc(x.title)}</b><span>${esc([x.effekt && 'Effekt: ' + x.effekt, x.insats && 'Insats: ' + x.insats, NAMN[x.agent]].filter(Boolean).join(' · '))}</span><div class="acts"><button class="btn p" data-ok="${esc(x.id)}">${esc(x.yes || 'Godkänn')}</button></div></div>`).join('') + `<div class="acts"><button class="btn" id="s-hela">Öppna besluten i Jarvis</button></div>`);
+}
+async function skicka(text) {
+  if (!LOKAL) {
+    // I HQ: lägg uppdraget i Supabase som HQ gör. Datorn kör det när den är igång.
+    try { const n = Date.now(); await HQ.rest('items', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify([{ id: crypto.randomUUID(), kind: 'jarvis-order', data: { text, title: text.replace(/^jarvis:\s*/i, ''), status: 'ny', from: 'Staden', createdAt: n }, deleted: false, client_updated_at: n }]) }); visa('Skickat till Jarvis. Datorn kör det när den är igång – svaret syns i HQ.'); }
+    catch (e) { visa(felText(e)); }
+    return;
+  }
+  try { const r = await fetch('/oppna', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Vencare': '1' }, body: JSON.stringify({ agent: '', text }) }); if (!r.ok) throw 0; visa('Claude öppnas med uppdraget. Tryck Enter där.'); }
+  catch { visa('Jarvis-servern är stängd. Öppna Vencare Team igen.'); }
+}
+side.addEventListener('click', e => {
+  const g = e.target.closest('[data-ge]'); if (g) { const t = ($('#s-q') || {}).value || ''; if (!t.trim()) return visa('Skriv vad som ska göras först.'); skicka(`Jarvis: låt ${NAMN[g.dataset.ge] || 'Jarvis'} (${g.dataset.ge}) ta det här: ${t.trim()}`); return; }
+  const o = e.target.closest('[data-ok]'); if (o) { const x = P().find(p => p.id === o.dataset.ok); if (x) skicka(x.prompt || `Jarvis: godkänt: ${x.title} (${x.id})`); return; }
+  const a = e.target.closest('[data-agent]'); if (a) return visaAgent(a.dataset.agent);
+  if (e.target.closest('[data-skill]')) return skicka('Jarvis: kör skill-scouten nu: leta efter skills som skulle hjälpa Vencare och agenterna, säkerhetsgranska dem och föreslå de bästa. Installera inget.');
+  if (e.target.id === 's-hela') location.href = LOKAL ? '/' : './';
+});
+let tt = 0; function visa(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => el.classList.remove('on'), 3500); }
+
+// ---------- HUD ----------
+$('#h-pend').onclick = visaBeslut;
+$('#h-back').onclick = () => { location.href = LOKAL ? '/' : './'; };
+if (!LOKAL) { $('#h-back').textContent = 'HQ'; $('#h-live').onclick = visaLive; }
+// Håll skärmen vaken när staden visas, t.ex. på en skärm i skolan.
+let vaken = null; const väck = async () => { try { if (!vaken && document.visibilityState === 'visible' && navigator.wakeLock) { vaken = await navigator.wakeLock.request('screen'); vaken.addEventListener('release', () => { vaken = null; }); } } catch {} };
+addEventListener('pointerdown', väck); document.addEventListener('visibilitychange', väck);
+$('#h-full').onclick = () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); };
+document.addEventListener('fullscreenchange', () => { $('#h-full').textContent = document.fullscreenElement ? 'Lämna helskärm' : 'Helskärm'; });
+const klocka = () => { $('#h-time').textContent = nu().toLocaleString('sv-SE', { weekday: 'short', hour: '2-digit', minute: '2-digit' }); }; klocka(); setInterval(klocka, 15000);
+const starta = () => { hämta(); setInterval(hämta, LOKAL ? 15000 : 30000); hämtaOrdrar(); setInterval(hämtaOrdrar, 10000); };
+// I HQ ligger Supabase-uppgifterna i config.js (eller i HQ:s inställningar). Lokalt behövs den inte.
+if (LOKAL) starta(); else { const s = document.createElement('script'); s.src = 'config.js'; s.onload = s.onerror = starta; document.head.appendChild(s); }
+// Förhandsvisa en fest: /kontor?fira=1
+if (/[?&]fira=1/.test(location.search)) setTimeout(() => fira('Förhandsvisning', 'Första ordern!', 'Så här firar staden en milstolpe.', 3), 1200);
+})();
+</script>
+</body>
+</html>

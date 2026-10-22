@@ -4,7 +4,7 @@
    HQ — personlig dashboard (PWA). Lokal först, synk via Supabase.
    ========================================================================= */
 const CFG = window.HQ_CONFIG || {};
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 const K = { data: 'hq.data.v1', ses: 'hq.session.v1', cfg: 'hq.cfg.v1', ui: 'hq.ui.v1' };
 const ls = {
   get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } },
@@ -731,6 +731,7 @@ function jarvisView() {
   if (!s) return h + `<div style="margin-top:12px">${empty(I.sparkle, 'purple', 'Jarvis är inte kopplad än', 'Koppla datorn under Inställningar → Jarvis på datorn.', `<button class="btn tinted" data-act="settings">Inställningar</button>`)}</div>`;
   const stale = !jvOn(s), waiting = od.filter(o => o.status === 'ny').length;
   h += `<p class="jv-upd ${stale ? 'stale' : ''}"><i></i>${stale ? 'Datorn är avstängd – senast synkad' : 'Datorn är igång · synkad'} ${esc(jvAgo(s.pushedAt))}${stale && waiting ? ` · ${waiting} ${waiting === 1 ? 'uppdrag väntar' : 'uppdrag väntar'} på den` : ''}${s.salesUpdated ? ` · siffror från ${esc(s.salesUpdated.replace('T', ' ').slice(0, 16))}` : ''}</p>`;
+  h += `<div class="btn-row" style="margin:2px 0 12px"><a class="btn secondary" href="stad.html">${I.sparkle}Öppna Vencare City</a></div>`;
   if (s.hold) h += `<div class="jv-alert">Claude-gränsen är nästan nådd: ${esc(s.hold)}. Nya uppdrag väntar tills dess.</div>`;
   if (s.lead) h += `<p class="jv-lead">${esc(s.lead)}</p>`;
   (s.alerts || []).forEach(a => { h += `<div class="jv-alert">${esc(a.text)}</div>`; });
@@ -745,7 +746,7 @@ function jarvisView() {
   }
   const pend = jvPending(s);
   h += sec('Väntar på ditt ja', '', pend.length ? `<div class="stack">${pend.map(p => `<div class="glass jv-p">
-      <div class="jv-p-t"><b>${p.prio === 'hög' ? '<em class="jv-pr h">Hög</em>' : p.prio === 'låg' ? '<em class="jv-pr">Låg</em>' : ''}${esc(p.title)}</b>${p.av === 'samordnaren' ? '<span>Förslag från teamet</span>' : ''}${[p.effekt && 'Effekt: ' + p.effekt, p.insats && 'Insats: ' + p.insats, p.sakerhet && 'Säkerhet: ' + p.sakerhet].filter(Boolean).length ? `<span>${esc([p.effekt && 'Effekt: ' + p.effekt, p.insats && 'Insats: ' + p.insats, p.sakerhet && 'Säkerhet: ' + p.sakerhet].filter(Boolean).join(' · '))}</span>` : ''}${p.kolla ? `<span class="jv-kolla">Kolla först: ${esc(p.kolla)}</span>` : ''}${p.detail || p.agentName ? `<span>${esc([p.detail, p.agentName].filter(Boolean).join(' · '))}</span>` : ''}</div>
+      <div class="jv-p-t"><b>${p.prio === 'hög' ? '<em class="jv-pr h">Hög</em>' : p.prio === 'låg' ? '<em class="jv-pr">Låg</em>' : ''}${esc(p.title)}</b>${p.av === 'samordnaren' ? '<span>Förslag från teamet</span>' : ''}${[p.effekt && 'Effekt: ' + p.effekt, p.insats && 'Insats: ' + p.insats, p.risk && ({'låg':'Låg risk',medel:'Medelrisk','hög':'Hög risk'}[p.risk] || 'Risk: ' + p.risk)].filter(Boolean).length ? `<span>${esc([p.effekt && 'Effekt: ' + p.effekt, p.insats && 'Insats: ' + p.insats, p.risk && ({'låg':'Låg risk',medel:'Medelrisk','hög':'Hög risk'}[p.risk] || 'Risk: ' + p.risk)].filter(Boolean).join(' · '))}</span>` : ''}${p.kolla ? `<span class="jv-kolla">Kolla först: ${esc(p.kolla)}</span>` : ''}${p.detail || p.agentName ? `<span>${esc([p.detail, p.agentName].filter(Boolean).join(' · '))}</span>` : ''}</div>
       <div class="btn-row"><button class="btn" data-act="jv-ok" data-id="${esc(p.id)}">${esc(p.yes || 'Godkänn')}</button><button class="btn secondary" data-act="jv-skip" data-id="${esc(p.id)}">Inte nu</button><button class="btn secondary" data-act="jv-no" data-id="${esc(p.id)}">Avböj</button></div></div>`).join('')}</div>`
     : `<div class="glass list plain"><div class="row"><div class="row-main"><div class="row-title">Inget väntar på dig</div></div></div></div>`, pend.length || null);
   if (od.length) h += sec('Dina uppdrag', '', `<div class="glass list plain">${od.slice(0, 8).map(jvOrderRow).join('')}</div>`);
