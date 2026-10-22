@@ -4,7 +4,7 @@
    HQ — personlig dashboard (PWA). Lokal först, synk via Supabase.
    ========================================================================= */
 const CFG = window.HQ_CONFIG || {};
-const VERSION = '1.5.1';
+const VERSION = '1.5.2';
 const K = { data: 'hq.data.v1', ses: 'hq.session.v1', cfg: 'hq.cfg.v1', ui: 'hq.ui.v1' };
 const ls = {
   get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } },
@@ -697,8 +697,10 @@ function jvQuick(text, s) {
   return out.length ? vid + ':\n' + out.join('\n') : '';
 }
 function jvPending(s) {
-  const done = UI.jvDone || {};
-  return (s && Array.isArray(s.pending) ? s.pending : []).filter(p => !done[p.id]);
+  // Avböjda döljs för gott. "Inte nu" döljs bara tills datorn har parkerat kortet – kommer det tillbaka efter
+  // teamets möte ska det synas igen.
+  const done = UI.jvDone || {}, later = UI.jvLater || {};
+  return (s && Array.isArray(s.pending) ? s.pending : []).filter(p => !done[p.id] && !(later[p.id] && later[p.id] > (s.pushedAt || 0) - 60000));
 }
 function jvSend(text, title) {
   text = String(text || '').trim(); if (!text) return null;
@@ -1311,7 +1313,12 @@ const ACT = {
     DB.put({ id: uid(), kind: 'jarvis-order', action: 'avbojd', taskId: p.id, motivering: mot, text: 'Avböj: ' + p.title, title: 'Avböjd: ' + p.title, status: 'ny', from: 'HQ' });
     UI.jvDone = { ...(UI.jvDone || {}), [p.id]: Date.now() }; saveUI(); closeSheet(); App.render(); toast(mot ? 'Avböjd – agenten får det som lärdom' : 'Avböjd');
   },
-  'jv-skip': el => { UI.jvDone = { ...(UI.jvDone || {}), [el.dataset.id]: Date.now() }; saveUI(); App.render(); },
+  'jv-skip': el => {
+    // "Inte nu": datorn parkerar kortet. Teamet tar upp det på nästa möte, och det kommer tillbaka om minst hälften säger ja.
+    const s = jvStatus(); const p = jvPending(s).find(x => x.id === el.dataset.id); if (!p) return;
+    DB.put({ id: uid(), kind: 'jarvis-order', action: 'parkera', taskId: p.id, text: 'Inte nu: ' + p.title, title: 'Inte nu: ' + p.title, status: 'ny', from: 'HQ' });
+    UI.jvLater = { ...(UI.jvLater || {}), [p.id]: Date.now() }; saveUI(); App.render(); toast('Inte nu – teamet tar upp det på nästa möte');
+  },
   'jv-open': el => jvOrderSheet(el.dataset.id),
   'jv-again': el => { const o = DB.get(el.dataset.id); if (o) { jvSend(o.text, o.title); closeSheet(); App.render(); toast('Skickat igen'); } },
   'jv-del': el => { DB.remove(el.dataset.id); closeSheet(); App.render(); },
