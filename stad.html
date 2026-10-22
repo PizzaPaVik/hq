@@ -456,7 +456,17 @@ function visaHus(h) {
 }
 function visaBeslut() {
   const p = P();
-  öppna(`<h2>Beslutstorget</h2><div class="sub">${p.length ? p.length + ' väntar på dig' : 'Inget väntar på dig'}</div>` + p.map(x => `<div class="row"><b>${esc(x.title)}</b><span>${esc([x.effekt && 'Effekt: ' + x.effekt, x.insats && 'Insats: ' + x.insats, NAMN[x.agent]].filter(Boolean).join(' · '))}</span><div class="acts"><button class="btn p" data-ok="${esc(x.id)}">${esc(x.yes || 'Godkänn')}</button></div></div>`).join('') + `<div class="acts"><button class="btn" id="s-hela">Öppna besluten i Jarvis</button></div>`);
+  öppna(`<h2>Beslutstorget</h2><div class="sub">${p.length ? p.length + ' väntar på dig' : 'Inget väntar på dig'}</div>` + p.map(x => `<div class="row"><b>${esc(x.title)}</b><span>${esc([x.typ === 'dintur' ? x.detail : '', x.effekt && 'Effekt: ' + x.effekt, x.insats && 'Insats: ' + x.insats, NAMN[x.agent]].filter(Boolean).join(' · '))}</span><div class="acts"><button class="btn p" data-ok="${esc(x.id)}">${esc(x.yes || 'Godkänn')}</button><button class="btn" data-svar="parkerad" data-id="${esc(x.id)}" title="Teamet tar upp det på nästa möte">Inte nu</button><button class="btn" data-svar="avbruten" data-id="${esc(x.id)}" title="Tas bort för gott">Avböj</button></div></div>`).join('') + `<div class="acts"><button class="btn" id="s-hela">Öppna besluten i Jarvis</button></div>`);
+}
+// Inte nu / Avböj: lokalt direkt i loggen, i HQ som ett uppdrag som datorn tar hand om utan Claude.
+async function svara(id, status) {
+  const x = P().find(p => p.id === id); if (!x) return;
+  try {
+    if (LOKAL) { const r = await fetch('/status', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Vencare': '1' }, body: JSON.stringify({ id, status }) }); if (!r.ok) throw 0; }
+    else { const n = Date.now(); await HQ.rest('items', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify([{ id: crypto.randomUUID(), kind: 'jarvis-order', data: { action: status === 'parkerad' ? 'parkera' : 'avbojd', taskId: id, text: (status === 'parkerad' ? 'Inte nu: ' : 'Avböj: ') + x.title, title: (status === 'parkerad' ? 'Inte nu: ' : 'Avböjd: ') + x.title, status: 'ny', from: 'Staden', createdAt: n }, deleted: false, client_updated_at: n }]) }); }
+    D.pending = P().filter(p => p.id !== id); uppdatera(); visaBeslut();
+    visa(status === 'parkerad' ? 'Inte nu – teamet tar upp det på nästa möte' : 'Avböjd');
+  } catch (e) { visa(LOKAL ? 'Jarvis-servern är stängd. Öppna Vencare Team igen.' : felText(e)); }
 }
 async function skicka(text) {
   if (!LOKAL) {
@@ -465,11 +475,19 @@ async function skicka(text) {
     catch (e) { visa(felText(e)); }
     return;
   }
+  // Godkända kort körs i bakgrunden, som i Jarvis-fönstret. Sista steg (push, utskick) och "Din tur" öppnas i Claude.
+  const m = /^Jarvis: (?:godkänt:|starta)\s*.*\(([a-z0-9]+)\)\s*$/i.exec(text), kort = m && P().find(p => p.id === m[1]);
+  if (kort && kort.typ !== 'slutsteg' && kort.typ !== 'dintur') {
+    try { const r = await fetch('/kor', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Vencare': '1' }, body: JSON.stringify({ text, id: kort.id }) }); if (!r.ok) throw 0; visa('Jarvis har börjat i bakgrunden.'); stäng(); setTimeout(hämta, 1500); }
+    catch { visa('Jarvis-servern är stängd. Öppna Vencare Team igen.'); }
+    return;
+  }
   try { const r = await fetch('/oppna', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Vencare': '1' }, body: JSON.stringify({ agent: '', text }) }); if (!r.ok) throw 0; visa('Claude öppnas med uppdraget. Tryck Enter där.'); }
   catch { visa('Jarvis-servern är stängd. Öppna Vencare Team igen.'); }
 }
 side.addEventListener('click', e => {
   const g = e.target.closest('[data-ge]'); if (g) { const t = ($('#s-q') || {}).value || ''; if (!t.trim()) return visa('Skriv vad som ska göras först.'); skicka(`Jarvis: låt ${NAMN[g.dataset.ge] || 'Jarvis'} (${g.dataset.ge}) ta det här: ${t.trim()}`); return; }
+  const sv = e.target.closest('[data-svar]'); if (sv) { svara(sv.dataset.id, sv.dataset.svar); return; }
   const o = e.target.closest('[data-ok]'); if (o) { const x = P().find(p => p.id === o.dataset.ok); if (x) skicka(x.prompt || `Jarvis: godkänt: ${x.title} (${x.id})`); return; }
   const a = e.target.closest('[data-agent]'); if (a) return visaAgent(a.dataset.agent);
   if (e.target.closest('[data-skill]')) return skicka('Jarvis: kör skill-scouten nu: leta efter skills som skulle hjälpa Vencare och agenterna, säkerhetsgranska dem och föreslå de bästa. Installera inget.');

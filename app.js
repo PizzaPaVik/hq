@@ -4,7 +4,7 @@
    HQ — personlig dashboard (PWA). Lokal först, synk via Supabase.
    ========================================================================= */
 const CFG = window.HQ_CONFIG || {};
-const VERSION = '1.5.2';
+const VERSION = '1.5.3';
 const K = { data: 'hq.data.v1', ses: 'hq.session.v1', cfg: 'hq.cfg.v1', ui: 'hq.ui.v1' };
 const ls = {
   get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } },
@@ -697,10 +697,11 @@ function jvQuick(text, s) {
   return out.length ? vid + ':\n' + out.join('\n') : '';
 }
 function jvPending(s) {
-  // Avböjda döljs för gott. "Inte nu" döljs bara tills datorn har parkerat kortet – kommer det tillbaka efter
-  // teamets möte ska det synas igen.
   const done = UI.jvDone || {}, later = UI.jvLater || {};
-  return (s && Array.isArray(s.pending) ? s.pending : []).filter(p => !done[p.id] && !(later[p.id] && later[p.id] > (s.pushedAt || 0) - 60000));
+  // Ett kort du har svarat på döljs tills datorn har hunnit ta hand om svaret (två synkar). Ligger det kvar efter det
+  // har agenten skickat tillbaka det (t.ex. som "Din tur"), och då ska det synas igen.
+  const väntar = t => t && t > (s.pushedAt || 0) - 90000;
+  return (s && Array.isArray(s.pending) ? s.pending : []).filter(p => !väntar(done[p.id]) && !väntar(later[p.id]));
 }
 function jvSend(text, title) {
   text = String(text || '').trim(); if (!text) return null;
@@ -1301,7 +1302,8 @@ const ACT = {
   'jv-ok': el => {
     const s = jvStatus(); const p = jvPending(s).find(x => x.id === el.dataset.id); if (!p) return;
     jvSend(p.prompt || `Jarvis: godkänt: ${p.title} (${p.id})`, `${p.yes || 'Godkänt'}: ${p.title}`);
-    UI.jvDone = { ...(UI.jvDone || {}), [p.id]: Date.now() }; saveUI(); App.render(); toast('Skickat till Jarvis');
+    // Döljs bara tills datorn har tagit uppdraget. Skickar agenten tillbaka kortet (t.ex. "Din tur") syns det igen.
+    UI.jvLater = { ...(UI.jvLater || {}), [p.id]: Date.now() }; saveUI(); App.render(); toast('Skickat till Jarvis');
   },
   'jv-no': el => {
     const s = jvStatus(); const p = jvPending(s).find(x => x.id === el.dataset.id); if (!p) return;
