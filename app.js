@@ -4,7 +4,7 @@
    HQ — personlig dashboard (PWA). Lokal först, synk via Supabase.
    ========================================================================= */
 const CFG = window.HQ_CONFIG || {};
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const K = { data: 'hq.data.v1', ses: 'hq.session.v1', cfg: 'hq.cfg.v1', ui: 'hq.ui.v1' };
 const ls = {
   get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } },
@@ -745,7 +745,7 @@ function jarvisView() {
   }
   const pend = jvPending(s);
   h += sec('Väntar på ditt ja', '', pend.length ? `<div class="stack">${pend.map(p => `<div class="glass jv-p">
-      <div class="jv-p-t"><b>${p.prio === 'hög' ? '<em class="jv-pr h">Hög</em>' : p.prio === 'låg' ? '<em class="jv-pr">Låg</em>' : ''}${esc(p.title)}</b>${p.av === 'samordnaren' ? '<span>Förslag från teamet</span>' : ''}${p.detail || p.agentName ? `<span>${esc([p.detail, p.agentName].filter(Boolean).join(' · '))}</span>` : ''}</div>
+      <div class="jv-p-t"><b>${p.prio === 'hög' ? '<em class="jv-pr h">Hög</em>' : p.prio === 'låg' ? '<em class="jv-pr">Låg</em>' : ''}${esc(p.title)}</b>${p.av === 'samordnaren' ? '<span>Förslag från teamet</span>' : ''}${[p.effekt && 'Effekt: ' + p.effekt, p.insats && 'Insats: ' + p.insats, p.sakerhet && 'Säkerhet: ' + p.sakerhet].filter(Boolean).length ? `<span>${esc([p.effekt && 'Effekt: ' + p.effekt, p.insats && 'Insats: ' + p.insats, p.sakerhet && 'Säkerhet: ' + p.sakerhet].filter(Boolean).join(' · '))}</span>` : ''}${p.kolla ? `<span class="jv-kolla">Kolla först: ${esc(p.kolla)}</span>` : ''}${p.detail || p.agentName ? `<span>${esc([p.detail, p.agentName].filter(Boolean).join(' · '))}</span>` : ''}</div>
       <div class="btn-row"><button class="btn" data-act="jv-ok" data-id="${esc(p.id)}">${esc(p.yes || 'Godkänn')}</button><button class="btn secondary" data-act="jv-skip" data-id="${esc(p.id)}">Inte nu</button><button class="btn secondary" data-act="jv-no" data-id="${esc(p.id)}">Avböj</button></div></div>`).join('')}</div>`
     : `<div class="glass list plain"><div class="row"><div class="row-main"><div class="row-title">Inget väntar på dig</div></div></div></div>`, pend.length || null);
   if (od.length) h += sec('Dina uppdrag', '', `<div class="glass list plain">${od.slice(0, 8).map(jvOrderRow).join('')}</div>`);
@@ -1302,8 +1302,13 @@ const ACT = {
   },
   'jv-no': el => {
     const s = jvStatus(); const p = jvPending(s).find(x => x.id === el.dataset.id); if (!p) return;
-    DB.put({ id: uid(), kind: 'jarvis-order', action: 'avbojd', taskId: p.id, text: 'Avböj: ' + p.title, title: 'Avböjd: ' + p.title, status: 'ny', from: 'HQ' });
-    UI.jvDone = { ...(UI.jvDone || {}), [p.id]: Date.now() }; saveUI(); App.render(); toast('Avböjd');
+    openSheet({ title: 'Avböj', left: 'Avbryt', body: `<div class="panel"><p style="margin:0 0 10px;font-weight:600">${esc(p.title)}</p><textarea id="jv-why" class="input" rows="3" placeholder="Varför? Agenten lär sig av det (valfritt)"></textarea><p class="hint" style="margin-top:8px">Din motivering sparas som en lärdom, så att ${esc(p.agentName || 'agenten')} inte föreslår samma sak igen.</p></div><button class="btn" style="margin-top:12px;width:100%" data-act="jv-no2" data-id="${esc(p.id)}">Avböj</button>` });
+  },
+  'jv-no2': el => {
+    const s = jvStatus(); const p = jvPending(s).find(x => x.id === el.dataset.id); if (!p) return;
+    const mot = (($('#jv-why') || {}).value || '').trim().slice(0, 500);
+    DB.put({ id: uid(), kind: 'jarvis-order', action: 'avbojd', taskId: p.id, motivering: mot, text: 'Avböj: ' + p.title, title: 'Avböjd: ' + p.title, status: 'ny', from: 'HQ' });
+    UI.jvDone = { ...(UI.jvDone || {}), [p.id]: Date.now() }; saveUI(); closeSheet(); App.render(); toast(mot ? 'Avböjd – agenten får det som lärdom' : 'Avböjd');
   },
   'jv-skip': el => { UI.jvDone = { ...(UI.jvDone || {}), [el.dataset.id]: Date.now() }; saveUI(); App.render(); },
   'jv-open': el => jvOrderSheet(el.dataset.id),
