@@ -1,6 +1,6 @@
 // HQ service worker – gör appen snabb och användbar offline.
 // Byt VERSION när du laddar upp ändrade filer.
-const VERSION = 'hq-1.5.0';
+const VERSION = 'hq-1.5.1';
 const ASSETS = ['./', './index.html', './stad.html', './styles.css', './app.js', './config.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 

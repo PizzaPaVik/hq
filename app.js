@@ -4,7 +4,7 @@
    HQ — personlig dashboard (PWA). Lokal först, synk via Supabase.
    ========================================================================= */
 const CFG = window.HQ_CONFIG || {};
-const VERSION = '1.5.0';
+const VERSION = '1.5.1';
 const K = { data: 'hq.data.v1', ses: 'hq.session.v1', cfg: 'hq.cfg.v1', ui: 'hq.ui.v1' };
 const ls = {
   get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch { return f; } },

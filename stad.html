@@ -2,7 +2,11 @@
 <html lang="sv">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#04060c">
 <title>Vencare City</title>
 <link rel="icon" href="/favicon.ico">
 <style>
@@ -54,7 +58,24 @@ button.chip{color:inherit}
 .legend{position:fixed;left:16px;bottom:14px;display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--ink2);padding:8px 12px;border-radius:10px;background:var(--glass);border:1px solid var(--line)}
 .legend em{font-style:normal;display:inline-flex;align-items:center;gap:6px}
 .legend em::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--c)}
-@media (max-width:700px){.chip.hide-s,.legend{display:none}}
+.btn,.chip{white-space:nowrap;-webkit-tap-highlight-color:transparent}
+.hud{top:calc(14px + env(safe-area-inset-top));left:calc(16px + env(safe-area-inset-left));right:calc(16px + env(safe-area-inset-right))}
+@media (max-width:700px){
+  .chip.hide-s,.legend,#h-full{display:none}
+  /* Mobil: rad 1 = namn, ljud och HQ. Rad 2 = beslut, dagens ordrar och live. */
+  .hud{flex-wrap:wrap;gap:8px;left:calc(12px + env(safe-area-inset-left));right:calc(12px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top))}
+  .brand{flex:1 1 calc(100% - 140px);min-width:0}
+  .brand b{letter-spacing:.24em}
+  .brand span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #h-snd{order:1} #h-back{order:2}
+  #h-pend,#h-today,#h-live{order:3;height:32px;font-size:12.5px;padding:0 10px}
+  .btn,.chip{height:34px}
+  .side{top:auto;bottom:calc(12px + env(safe-area-inset-bottom));left:12px;right:12px;width:auto;max-width:none;max-height:62vh;transform:translateY(calc(100% + 24px))}
+  .party{top:calc(96px + env(safe-area-inset-top));width:calc(100vw - 32px)}
+  .party b{font-size:34px}
+  .party span{font-size:15px}
+  .toast{bottom:calc(20px + env(safe-area-inset-bottom));max-width:calc(100vw - 32px);text-align:center}
+}
 @media (prefers-reduced-motion:reduce){.side,.toast,.party{transition:none}}
 </style>
 </head>
@@ -100,13 +121,15 @@ const husFor = id => HUS.find(h => h.agenter.includes(id)) || HUS[0];
 const PLATS = { gx: 2.2, gy: 2.2 }; // Beslutstorget framför tornet
 
 // ---------- Isometri ----------
-let W = 0, H = 0, DPR = 1, TW = 64, TH = 32, OX = 0, OY = 0, zoom = 1;
+let W = 0, H = 0, DPR = 1, TW = 64, TH = 32, OX = 0, OY = 0, zoom = 1, tz = 1; // tz: textens skala, aldrig för liten för att läsas
 const iso = (gx, gy) => ({ x: OX + (gx - gy) * TW / 2 * zoom, y: OY + (gx + gy) * TH / 2 * zoom });
 function resize() {
   DPR = Math.min(2, window.devicePixelRatio || 1); W = innerWidth; H = innerHeight;
   cv.width = W * DPR; cv.height = H * DPR; cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-  zoom = Math.max(.55, Math.min(1.35, Math.min(W / 1180, H / 760)));
-  OX = W / 2; OY = H * .52;
+  // På mobil räcker det att husen får plats – markplattans hörn får gå utanför kanten.
+  const mobil = W < 700;
+  zoom = Math.max(mobil ? .3 : .55, Math.min(1.35, mobil ? Math.min(W / 800, H / 880) : Math.min(W / 1180, H / 760)));
+  OX = W / 2; OY = mobil ? H * .56 : H * .52; tz = Math.max(.82, zoom);
 }
 addEventListener('resize', resize); resize();
 
@@ -269,6 +292,8 @@ const ljud = (() => {
   knapp.onclick = () => { på = !på; store.set('stad-ljud', på); rita(); };
   const ctx = () => { if (!ac) try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch {} if (ac && ac.state === 'suspended') ac.resume(); return ac; };
   const brus = (t0, dur, f0, f1, vol) => { const a = ctx(); if (!a) return; const b = a.createBuffer(1, a.sampleRate * dur, a.sampleRate), d = b.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length); const s = a.createBufferSource(); s.buffer = b; const fl = a.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.setValueAtTime(f0, a.currentTime + t0); fl.frequency.exponentialRampToValueAtTime(f1, a.currentTime + t0 + dur); const g = a.createGain(); g.gain.value = vol; s.connect(fl).connect(g).connect(a.destination); s.start(a.currentTime + t0); };
+  // iPhone spelar bara ljud efter ett tryck: lås upp ljudet vid första trycket.
+  addEventListener('pointerdown', () => { if (på) ctx(); }, { once: true });
   return {
     uppskjut() { if (på) brus(0, .7, 400, 2400, .12); },
     smäll() { if (på) { brus(0, .5, 1800, 200, .35); } },
@@ -305,7 +330,7 @@ function mark(dag, t) {
   // beslutstorget
   const pc = iso(PLATS.gx, PLATS.gy), np = P().length;
   cx.save(); cx.translate(pc.x, pc.y); cx.scale(1, .5); cx.beginPath(); cx.arc(0, 0, 70 * zoom, 0, 7); cx.fillStyle = np ? 'rgba(255,126,141,.10)' : 'rgba(95,225,255,.06)'; cx.fill(); cx.strokeStyle = np ? 'rgba(255,126,141,.45)' : 'rgba(95,225,255,.25)'; cx.lineWidth = 1.5; cx.stroke(); cx.restore();
-  cx.fillStyle = np ? 'rgba(255,170,180,.9)' : 'rgba(190,220,245,.55)'; cx.font = `${11 * zoom}px Cascadia Mono, Consolas, monospace`; cx.textAlign = 'center'; cx.fillText('BESLUTSTORGET', pc.x, pc.y + 44 * zoom);
+  cx.fillStyle = np ? 'rgba(255,170,180,.9)' : 'rgba(190,220,245,.55)'; cx.font = `${11 * tz}px Cascadia Mono, Consolas, monospace`; cx.textAlign = 'center'; cx.fillText('BESLUTSTORGET', pc.x, pc.y + 44 * zoom);
 }
 function hus(h, dag, t) {
   const x0 = h.gx - h.w / 2, y0 = h.gy - h.d / 2, x1 = h.gx + h.w / 2, y1 = h.gy + h.d / 2, Hh = h.h * zoom;
@@ -343,10 +368,10 @@ function hus(h, dag, t) {
   if (h.id === 'bibliotek') { const n = Math.min(12, (D.skills || []).length); for (let i = 0; i < n; i++) { cx.fillStyle = ['#ff7e8d', '#5fe1ff', '#ffd27a', '#b49cff'][i % 4]; cx.fillRect(mid.x - 24 * zoom + i * 4 * zoom, mid.y - 10 * zoom, 3 * zoom, 8 * zoom); } }
   // skylt
   const sky = { x: mid.x, y: mid.y - (h.id === 'torn' ? 78 : 14) * zoom };
-  cx.font = `600 ${12 * zoom}px Segoe UI, system-ui, sans-serif`; const tw = cx.measureText(h.namn).width + 16;
-  cx.fillStyle = 'rgba(4,8,16,.78)'; cx.strokeStyle = h.c; cx.lineWidth = 1; cx.beginPath(); cx.roundRect(sky.x - tw / 2, sky.y - 26 * zoom, tw, 20 * zoom, 6); cx.fill(); cx.stroke();
-  cx.fillStyle = '#eaf6ff'; cx.textAlign = 'center'; cx.fillText(h.namn, sky.x, sky.y - 12 * zoom);
-  if (aktiv) { cx.fillStyle = h.c; cx.font = `${10.5 * zoom}px Cascadia Mono, Consolas, monospace`; cx.fillText(aktiv + ' jobbar', sky.x, sky.y + 2 * zoom); }
+  cx.font = `600 ${12 * tz}px Segoe UI, system-ui, sans-serif`; const tw = cx.measureText(h.namn).width + 16;
+  cx.fillStyle = 'rgba(4,8,16,.78)'; cx.strokeStyle = h.c; cx.lineWidth = 1; cx.beginPath(); cx.roundRect(sky.x - tw / 2, sky.y - 26 * tz, tw, 20 * tz, 6); cx.fill(); cx.stroke();
+  cx.fillStyle = '#eaf6ff'; cx.textAlign = 'center'; cx.fillText(h.namn, sky.x, sky.y - 12 * tz);
+  if (aktiv) { cx.fillStyle = h.c; cx.font = `${10.5 * tz}px Cascadia Mono, Consolas, monospace`; cx.fillText(aktiv + ' jobbar', sky.x, sky.y + 2 * tz); }
   h._box = { x: Math.min(A.x, E.x) - 4, y: up(E).y - (h.id === 'torn' ? 90 : 30) * zoom, w: Math.abs(C.x - A.x) + 8, h: A.y - up(E).y + (h.id === 'torn' ? 90 : 30) * zoom };
 }
 const FÄRG = { jobbar: '#5fe1ff', väntar: '#ff7e8d', klar: '#5be3a5', ledig: '#8aa' };
@@ -372,8 +397,8 @@ function figur(f, t, dt) {
 function pratbubbla(f) {
   if (!f._p || f.läge.s === 'ledig' || !f.läge.t) return;
   const txt = (NAMN[f.id] + ': ' + f.läge.t).slice(0, 46) + ((NAMN[f.id] + ': ' + f.läge.t).length > 46 ? '…' : '');
-  cx.font = `${11 * zoom}px Segoe UI, system-ui, sans-serif`; const w = cx.measureText(txt).width + 14, x = f._p.x - w / 2, y = f._p.y - 44 * zoom;
-  cx.fillStyle = 'rgba(4,8,16,.85)'; cx.strokeStyle = FÄRG[f.läge.s]; cx.lineWidth = 1; cx.beginPath(); cx.roundRect(x, y - 16 * zoom, w, 20 * zoom, 6); cx.fill(); cx.stroke();
+  cx.font = `${11 * tz}px Segoe UI, system-ui, sans-serif`; const w = cx.measureText(txt).width + 14, x = f._p.x - w / 2, y = f._p.y - 44 * tz;
+  cx.fillStyle = 'rgba(4,8,16,.85)'; cx.strokeStyle = FÄRG[f.läge.s]; cx.lineWidth = 1; cx.beginPath(); cx.roundRect(x, y - 16 * tz, w, 20 * tz, 6); cx.fill(); cx.stroke();
   cx.fillStyle = '#eaf6ff'; cx.textAlign = 'center'; cx.fillText(txt, f._p.x, y - 2 * zoom);
 }
 function fyrverkeri(dt) {
@@ -393,7 +418,7 @@ function loop(t) {
   // rita hus och figurer i djupordning
   const saker = [...HUS.map(h => ({ k: h.gx + h.gy + h.d / 2, h })), ...FIG.map(f => ({ k: f.gx + f.gy, f }))].sort((a, b) => a.k - b.k);
   saker.forEach(s => s.h ? hus(s.h, dag, t) : figur(s.f, t, dt));
-  if (!document.getElementById('party').classList.contains('on')) FIG.forEach(pratbubbla);
+  if (W >= 700 && !document.getElementById('party').classList.contains('on')) FIG.forEach(pratbubbla);
   fyrverkeri(dt);
   if (info || !laddad) { cx.fillStyle = 'rgba(190,220,245,.75)'; cx.font = '14px Segoe UI, sans-serif'; cx.textAlign = 'center'; cx.fillText(info || 'Hämtar läget från Jarvis…', W / 2, H - 70); }
   requestAnimationFrame(loop);
@@ -402,7 +427,7 @@ requestAnimationFrame(loop);
 
 // ---------- Klick och hovring ----------
 function träff(x, y) {
-  const f = FIG.find(f => f._p && Math.hypot(f._p.x - x, f._p.y - y) < 14 * zoom); if (f) return { f };
+  const f = FIG.find(f => f._p && Math.hypot(f._p.x - x, f._p.y - y) < Math.max(22, 14 * zoom)); if (f) return { f };
   const h = [...HUS].reverse().find(h => h._box && x > h._box.x && x < h._box.x + h._box.w && y > h._box.y && y < h._box.y + h._box.h); if (h) return { h };
   const pc = iso(PLATS.gx, PLATS.gy); if (Math.hypot((x - pc.x), (y - pc.y) * 2) < 70 * zoom) return { torg: true };
   return null;
@@ -459,6 +484,8 @@ if (!LOKAL) { $('#h-back').textContent = 'HQ'; $('#h-live').onclick = visaLive; 
 // Håll skärmen vaken när staden visas, t.ex. på en skärm i skolan.
 let vaken = null; const väck = async () => { try { if (!vaken && document.visibilityState === 'visible' && navigator.wakeLock) { vaken = await navigator.wakeLock.request('screen'); vaken.addEventListener('release', () => { vaken = null; }); } } catch {} };
 addEventListener('pointerdown', väck); document.addEventListener('visibilitychange', väck);
+// Helskärm finns inte på iPhone (och behövs inte när staden öppnas från hemskärmen).
+if (!document.documentElement.requestFullscreen || matchMedia('(display-mode: standalone)').matches) $('#h-full').hidden = true;
 $('#h-full').onclick = () => { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}); };
 document.addEventListener('fullscreenchange', () => { $('#h-full').textContent = document.fullscreenElement ? 'Lämna helskärm' : 'Helskärm'; });
 const klocka = () => { $('#h-time').textContent = nu().toLocaleString('sv-SE', { weekday: 'short', hour: '2-digit', minute: '2-digit' }); }; klocka(); setInterval(klocka, 15000);
